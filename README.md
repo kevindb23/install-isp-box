@@ -1,4 +1,4 @@
-# 1WAN ISP Box Installers
+# ISP Box Installers
 
 Installation and removal scripts for an Ubuntu-based ISP service box.
 
