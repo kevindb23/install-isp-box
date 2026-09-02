@@ -45,7 +45,11 @@ apt-get install -y \
     git \
     libpcre2-dev \
     libssl-dev \
-    liblua5.1-0-dev
+    liblua5.1-0-dev \
+    ca-certificates \
+    curl \
+    lsb-release \
+    iptables
 
 readonly FRR_KEYRING="/usr/share/keyrings/frrouting.gpg"
 readonly FRR_SOURCE="/etc/apt/sources.list.d/frr.list"
