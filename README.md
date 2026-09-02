@@ -10,6 +10,8 @@ Installation and removal scripts for an Ubuntu-based ISP service box.
 | [install-freeradius-3.2-jammy.sh](install-freeradius-3.2-jammy.sh) | Installs FreeRADIUS 3.2 from the InkBridge Networks repository on Ubuntu Jammy 22.04 amd64. |
 | [install-acs-server.sh](install-acs-server.sh) | Downloads, converts, and runs the ACS/GenieACS setup installer. |
 | [install-acs-server-setup.sh](install-acs-server-setup.sh) | Full GenieACS, MongoDB, Node.js, and service installation script. |
+| [install-billing-server.sh](install-billing-server.sh) | Installs the Laravel/PHP billing application, dependencies, frontend builds, and Nginx configuration. |
+| [uninstall-billing-server.sh](uninstall-billing-server.sh) | Removes the billing application and billing-specific Nginx configuration. |
 
 ## Requirements
 
