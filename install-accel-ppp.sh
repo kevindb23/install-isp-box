@@ -47,6 +47,24 @@ apt-get install -y \
     libssl-dev \
     liblua5.1-0-dev
 
+readonly FRR_KEYRING="/usr/share/keyrings/frrouting.gpg"
+readonly FRR_SOURCE="/etc/apt/sources.list.d/frr.list"
+
+log "Configuring the official FRR stable repository."
+curl --fail --silent --show-error --location https://deb.frrouting.org/frr/keys.gpg \
+    | install -o root -g root -m 0644 /dev/stdin "\${FRR_KEYRING}"
+printf 'deb [signed-by=%s] https://deb.frrouting.org/frr %s frr-stable\n' \
+    "\${FRR_KEYRING}" "\$(lsb_release -s -c)" > "\${FRR_SOURCE}"
+chmod 0644 "\${FRR_SOURCE}"
+apt-get update
+apt-get install -y frr frr-pythontools
+
+log "Enabling IPv4 and IPv6 forwarding."
+sysctl -w net.ipv4.ip_forward=1
+sysctl -w net.ipv6.conf.all.forwarding=1
+grep -qxF 'net.ipv4.ip_forward=1' /etc/sysctl.conf || printf '%s\n' 'net.ipv4.ip_forward=1' >> /etc/sysctl.conf
+grep -qxF 'net.ipv6.conf.all.forwarding=1' /etc/sysctl.conf || printf '%s\n' 'net.ipv6.conf.all.forwarding=1' >> /etc/sysctl.conf
+
 if [[ -d "${SOURCE_DIR}/.git" ]]; then
     log "Updating existing source tree at ${SOURCE_DIR}."
     git -C "${SOURCE_DIR}" fetch --prune origin
@@ -97,6 +115,9 @@ if command -v systemctl >/dev/null 2>&1; then
     systemctl enable accel-ppp
     systemctl restart accel-ppp
     systemctl --no-pager --full status accel-ppp || true
+    systemctl enable frr
+    systemctl restart frr
+    systemctl --no-pager --full status frr || true
 else
     log "systemctl is unavailable; start manually with:"
     log "accel-pppd -d -c /etc/accel-ppp.conf -p /var/run/accel-ppp.pid"
