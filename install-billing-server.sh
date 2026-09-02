@@ -54,7 +54,7 @@ export DEBIAN_FRONTEND=noninteractive
 run_root apt-get update
 run_root apt-get install -y ca-certificates curl git unzip nginx mysql-server \
     php-cli php-fpm php-common php-mysql php-curl php-mbstring php-xml php-zip \
-    python3 python3-pip nodejs npm composer
+    python3 python3-pip nodejs composer
 
 PHP_MM="$(php -r 'echo PHP_MAJOR_VERSION.".".PHP_MINOR_VERSION;')"
 PHP_MAJOR="${PHP_MM%%.*}"
@@ -65,6 +65,9 @@ command -v python3 >/dev/null 2>&1 || fail "Python 3 installation failed."
 
 NODE_MAJOR="$(node --version | sed 's/^v//' | cut -d. -f1)"
 if (( NODE_MAJOR < 18 )); then
+    if dpkg-query -W -f='${db:Status-Status}' libnode-dev 2>/dev/null | grep -qx installed; then
+        apt-get remove -y libnode-dev
+    fi
     curl --fail --silent --show-error --location https://deb.nodesource.com/setup_20.x | run_root bash -
     run_root apt-get install -y nodejs
     NODE_MAJOR="$(node --version | sed 's/^v//' | cut -d. -f1)"
