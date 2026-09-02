@@ -44,12 +44,11 @@ if (( PURGE_DATABASE == 1 )); then
     [[ "${DB_USER}" =~ ^[A-Za-z0-9_]+$ ]] || { printf 'Invalid DB_USER.\n' >&2; exit 1; }
 fi
 
-systemctl disable --now nginx 2>/dev/null || true
 rm -f -- "${NGINX_LINK}" "${NGINX_SITE}"
 if [[ -e /etc/nginx/sites-enabled/default.disabled && ! -e /etc/nginx/sites-enabled/default ]]; then
     mv /etc/nginx/sites-enabled/default.disabled /etc/nginx/sites-enabled/default
 fi
-nginx -t 2>/dev/null && systemctl start nginx 2>/dev/null || true
+nginx -t 2>/dev/null && systemctl reload nginx 2>/dev/null || true
 
 if (( PURGE_DATABASE == 1 )); then
     mysql --protocol=socket -uroot <<SQL
