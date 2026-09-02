@@ -5,6 +5,8 @@ set -Eeuo pipefail
 IFS=$'\n\t'
 
 readonly SOURCE_DIR="${ACCEL_SOURCE_DIR:-/opt/accel-ppp-code}"
+readonly FRR_KEYRING="/usr/share/keyrings/frrouting.gpg"
+readonly FRR_SOURCE="/etc/apt/sources.list.d/frr.list"
 PURGE_CONFIG=0
 ASSUME_YES=0
 
@@ -13,7 +15,7 @@ usage() {
 Usage: uninstall-accel-ppp.sh [--yes] [--purge-config]
 
   --yes            Do not ask for confirmation.
-  --purge-config   Also remove /etc/accel-ppp.conf.
+  --purge-config   Also remove /etc/accel-ppp.conf and /etc/frr.
 EOF
 }
 
@@ -37,18 +39,24 @@ fi
 
 if command -v systemctl >/dev/null 2>&1; then
     systemctl disable --now accel-ppp 2>/dev/null || true
+    systemctl disable --now frr 2>/dev/null || true
 fi
 
-apt-get purge -y accel-ppp 2>/dev/null || true
+apt-get purge -y accel-ppp frr frr-pythontools 2>/dev/null || true
 apt-get autoremove -y
 
 rm -f /etc/apt/sources.list.d/inkbridge.list
+rm -f "${FRR_SOURCE}" "${FRR_KEYRING}"
 rm -f /etc/apt/preferences.d/networkradius
 rm -f /etc/apt/keyrings/packages.networkradius.com.asc
 apt-get update
 
+sed -i -e "/net.ipv4.ip_forward=1/d" -e "/net.ipv6.conf.all.forwarding=1/d" /etc/sysctl.conf
+sysctl -p >/dev/null 2>&1 || true
+
 if [[ "${PURGE_CONFIG}" -eq 1 ]]; then
     rm -f /etc/accel-ppp.conf /etc/accel-ppp.conf.dist
+    rm -rf -- /etc/frr /var/log/frr
 else
     printf 'Preserved /etc/accel-ppp.conf. Use --purge-config to remove it.\n'
 fi
