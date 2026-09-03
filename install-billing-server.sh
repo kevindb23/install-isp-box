@@ -3,6 +3,7 @@ set -Eeuo pipefail
 IFS=$'\n\t'
 
 readonly APP_DIR="${APP_DIR:-/var/www/billing-server}"
+readonly DOCUMENT_ROOT="${DOCUMENT_ROOT:-${APP_DIR}/public}"
 readonly BRANCH="${BRANCH:-main}"
 readonly SERVER_NAME="${SERVER_NAME:-_}"
 readonly NGINX_SITE="/etc/nginx/sites-available/billing-server"
@@ -25,6 +26,7 @@ Environment:
   REPOSITORY_URL     Required Git repository URL.
   BRANCH             Git branch; default: main.
   APP_DIR            Install directory; default: /var/www/billing-server.
+  DOCUMENT_ROOT      Nginx document root; default: /var/www/billing-server/public.
   SERVER_NAME        Nginx server_name; default: _.
 EOF
 }
@@ -91,6 +93,7 @@ else
 fi
 
 chown -R root:root "${APP_DIR}"
+[[ -d "${DOCUMENT_ROOT}" ]] || fail "Nginx document root does not exist: ${DOCUMENT_ROOT}."
 cd "${APP_DIR}"
 composer install --no-interaction --prefer-dist --optimize-autoloader
 npm install
@@ -130,7 +133,7 @@ run_root tee "${NGINX_SITE}" >/dev/null <<NGINX
 server {
     listen 80;
     server_name ${SERVER_NAME};
-    root ${APP_DIR}/public;
+    root ${DOCUMENT_ROOT};
     index index.php index.html;
 
     location / {
