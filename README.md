@@ -129,6 +129,8 @@ Download and run the standalone server-dependency installer:
 wget -O install-billing-server.sh https://raw.githubusercontent.com/kevindb23/install-isp-box/main/install-billing-server.sh
 chmod +x install-billing-server.sh
 sudo ./install-billing-server.sh
+
+sudo REPOSITORY_URL=https://github.com/owner/your-billing-app.git ./install-billing-server.sh
 ```
 
 
