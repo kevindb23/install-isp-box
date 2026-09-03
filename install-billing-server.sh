@@ -7,6 +7,7 @@ readonly BRANCH="${BRANCH:-main}"
 readonly SERVER_NAME="${SERVER_NAME:-_}"
 readonly NGINX_SITE="/etc/nginx/sites-available/billing-server"
 readonly NGINX_LINK="/etc/nginx/sites-enabled/billing-server"
+readonly BILLING_SQL_FILE="${BILLING_SQL_FILE:-}"
 
 SKIP_BUILD=0
 SETUP_DATABASE=0
@@ -104,9 +105,9 @@ if (( SKIP_BUILD == 0 )); then
 fi
 
 if (( SETUP_DATABASE == 1 )); then
-    : "${DB_NAME:?DB_NAME is required with --setup-database}"
-    : "${DB_USER:?DB_USER is required with --setup-database}"
-    : "${DB_PASSWORD:?DB_PASSWORD is required with --setup-database}"
+    DB_NAME="${DB_NAME:-portal}"
+    DB_USER="${DB_USER:-billing}"
+    DB_PASSWORD="${DB_PASSWORD:-N3t3ng777}"
     [[ "${DB_NAME}" =~ ^[A-Za-z0-9_]+$ ]] || fail "DB_NAME contains invalid characters."
     [[ "${DB_USER}" =~ ^[A-Za-z0-9_]+$ ]] || fail "DB_USER contains invalid characters."
     DB_PASSWORD_SQL="${DB_PASSWORD//\\/\\\\}"
@@ -115,9 +116,13 @@ if (( SETUP_DATABASE == 1 )); then
 CREATE DATABASE IF NOT EXISTS \`${DB_NAME}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 CREATE USER IF NOT EXISTS '${DB_USER}'@'localhost' IDENTIFIED BY '${DB_PASSWORD_SQL}';
 ALTER USER '${DB_USER}'@'localhost' IDENTIFIED BY '${DB_PASSWORD_SQL}';
-GRANT ALL PRIVILEGES ON \`${DB_NAME}\`.* TO '${DB_USER}'@'localhost';
+GRANT ALL PRIVILEGES ON *.* TO '${DB_USER}'@'localhost' WITH GRANT OPTION;
 FLUSH PRIVILEGES;
 SQL
+    if [[ -n "${BILLING_SQL_FILE}" ]]; then
+        [[ -f "${BILLING_SQL_FILE}" ]] || fail "Database dump not found: ${BILLING_SQL_FILE}."
+        run_root mysql --protocol=socket -uroot "${DB_NAME}" < "${BILLING_SQL_FILE}"
+    fi
 fi
 
 run_root install -d -m 0755 /etc/nginx/sites-available /etc/nginx/sites-enabled
