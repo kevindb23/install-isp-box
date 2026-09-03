@@ -123,6 +123,14 @@ These scripts are provided as-is for operational use. Accel-PPP, FreeRADIUS, FRR
 
 The billing server installer installs Nginx, MySQL, PHP 8.1+, Composer, Node.js 18+, npm, Python 3, and system dependencies. It does not clone the billing application. Use the full system installer to clone and build the application into **/var/www/billing-server**.
 
+Download and run the standalone server-dependency installer:
+
+```bash
+wget -O install-billing-server.sh https://raw.githubusercontent.com/kevindb23/install-isp-box/main/install-billing-server.sh
+chmod +x install-billing-server.sh
+sudo ./install-billing-server.sh
+```
+
 
 Options include **--skip-build** and **--setup-database**. The **BRANCH**, **APP_DIR**, and **SERVER_NAME** environment variables are also configurable.
 
