@@ -45,3 +45,13 @@ fi
 curl --fail --silent --show-error --location "${SCRIPT_URL}" -o "${WORK_DIR}/uninstall-billing-server.sh"
 chmod 700 "${WORK_DIR}/uninstall-billing-server.sh"
 "${bash_cmd[@]}" "${WORK_DIR}/uninstall-billing-server.sh" "$@"
+
+# Restore the stock Ubuntu Nginx site and document root after billing removal.
+install -d -m 0755 /var/www/html
+if [[ -f /etc/nginx/sites-available/default ]]; then
+    ln -sfn /etc/nginx/sites-available/default /etc/nginx/sites-enabled/default
+fi
+nginx -t
+systemctl enable --now nginx
+systemctl reload nginx
+printf '[billing-system] Billing removed; Nginx restored to /var/www/html.\n'
