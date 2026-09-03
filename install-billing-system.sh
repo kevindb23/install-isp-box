@@ -38,17 +38,28 @@ done
 [[ "${EUID}" -eq 0 ]] || { command -v sudo >/dev/null 2>&1 || { echo 'Run as root or install sudo.' >&2; exit 1; }; }
 if [[ "${EUID}" -eq 0 ]]; then
     apt-get update -y
-    apt-get install -y ca-certificates curl
+    apt-get install -y ca-certificates curl git
     bash_cmd=(bash)
 else
     sudo apt-get update -y
-    sudo apt-get install -y ca-certificates curl
+    sudo apt-get install -y ca-certificates curl git
     bash_cmd=(sudo bash)
 fi
 
 curl --fail --silent --show-error --location "${SCRIPT_URL}" -o "${WORK_DIR}/install-billing-server.sh"
 curl --fail --silent --show-error --location "${SQL_URL}" -o "${WORK_DIR}/billing.sql"
 chmod 700 "${WORK_DIR}/install-billing-server.sh"
+if [[ -d "${BILLING_APP_DIR}/.git" ]]; then
+    git -C "${BILLING_APP_DIR}" fetch --prune origin
+    git -C "${BILLING_APP_DIR}" checkout "${BRANCH:-main}"
+    git -C "${BILLING_APP_DIR}" pull --ff-only origin "${BRANCH:-main}"
+elif [[ -e "${BILLING_APP_DIR}" ]]; then
+    echo "Application directory exists but is not a Git checkout: ${BILLING_APP_DIR}" >&2
+    exit 1
+else
+    install -d -m 0755 "$(dirname "${BILLING_APP_DIR}")"
+    git clone --branch "${BRANCH:-main}" --single-branch "${DEFAULT_REPOSITORY_URL}" "${BILLING_APP_DIR}"
+fi
 if [[ "${EUID}" -eq 0 ]]; then
     read -r -p 'MySQL database name [portal]: ' DB_NAME_INPUT
     read -r -p 'MySQL username: ' DB_USER_INPUT
