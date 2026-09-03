@@ -2,7 +2,7 @@
 set -Eeuo pipefail
 IFS=$'\n\t'
 
-readonly APP_DIR="${APP_DIR:-/var/www/billing-server}"
+readonly APP_DIR="${APP_DIR:-/var/www/billing}"
 readonly BRANCH="${BRANCH:-main}"
 readonly SERVER_NAME="${SERVER_NAME:-_}"
 readonly NGINX_SITE="/etc/nginx/sites-available/billing-server"
@@ -23,7 +23,7 @@ Options:
 Environment:
   REPOSITORY_URL     Required Git repository URL.
   BRANCH             Git branch; default: main.
-  APP_DIR            Install directory; default: /var/www/billing-server.
+  APP_DIR            Install directory; default: /var/www/billing.
   SERVER_NAME        Nginx server_name; default: _.
 EOF
 }
