@@ -96,7 +96,7 @@ install -d -m 0755 /etc/nginx/sites-available /etc/nginx/sites-enabled
 install -d -m 0755 "${BILLING_DOCUMENT_ROOT}"
 tee "${NGINX_SITE}" >/dev/null <<NGINX
 server {
-    listen 80;
+    listen 80 default_server;
     server_name ${SERVER_NAME:-_};
     root ${BILLING_DOCUMENT_ROOT};
     index index.php index.html;
@@ -117,8 +117,8 @@ server {
 }
 NGINX
 ln -sfn "${NGINX_SITE}" "${NGINX_LINK}"
-if [[ -e /etc/nginx/sites-enabled/default && ! -e /etc/nginx/sites-enabled/default.disabled ]]; then
-    mv /etc/nginx/sites-enabled/default /etc/nginx/sites-enabled/default.disabled
+if [[ -L /etc/nginx/sites-enabled/default || -f /etc/nginx/sites-enabled/default ]]; then
+    mv -f /etc/nginx/sites-enabled/default /etc/nginx/sites-enabled/default.disabled
 fi
 nginx -t
 systemctl enable --now nginx
