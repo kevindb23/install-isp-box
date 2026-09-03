@@ -3,11 +3,7 @@ set -Eeuo pipefail
 IFS=$'\n\t'
 
 readonly APP_DIR="${APP_DIR:-/var/www/billing-server}"
-readonly DOCUMENT_ROOT="${DOCUMENT_ROOT:-${APP_DIR}/public}"
 readonly BRANCH="${BRANCH:-main}"
-readonly SERVER_NAME="${SERVER_NAME:-_}"
-readonly NGINX_SITE="/etc/nginx/sites-available/billing-server"
-readonly NGINX_LINK="/etc/nginx/sites-enabled/billing-server"
 readonly BILLING_SQL_FILE="${BILLING_SQL_FILE:-}"
 
 SKIP_BUILD=0
@@ -26,7 +22,6 @@ Environment:
   REPOSITORY_URL     Required Git repository URL.
   BRANCH             Git branch; default: main.
   APP_DIR            Install directory; default: /var/www/billing-server.
-  DOCUMENT_ROOT      Nginx document root; default: /var/www/billing-server/public.
   SERVER_NAME        Nginx server_name; default: _.
 EOF
 }
@@ -93,7 +88,6 @@ else
 fi
 
 chown -R root:root "${APP_DIR}"
-[[ -d "${DOCUMENT_ROOT}" ]] || fail "Nginx document root does not exist: ${DOCUMENT_ROOT}."
 cd "${APP_DIR}"
 composer install --no-interaction --prefer-dist --optimize-autoloader
 npm install
@@ -108,9 +102,9 @@ if (( SKIP_BUILD == 0 )); then
 fi
 
 if (( SETUP_DATABASE == 1 )); then
-    DB_NAME="${DB_NAME:-portal}"
-    DB_USER="${DB_USER:-billing}"
-    DB_PASSWORD="${DB_PASSWORD:-N3t3ng777}"
+    : "${DB_NAME:?DB_NAME is required with --setup-database}"
+    : "${DB_USER:?DB_USER is required with --setup-database}"
+    : "${DB_PASSWORD:?DB_PASSWORD is required with --setup-database}"
     [[ "${DB_NAME}" =~ ^[A-Za-z0-9_]+$ ]] || fail "DB_NAME contains invalid characters."
     [[ "${DB_USER}" =~ ^[A-Za-z0-9_]+$ ]] || fail "DB_USER contains invalid characters."
     DB_PASSWORD_SQL="${DB_PASSWORD//\\/\\\\}"
@@ -126,38 +120,18 @@ SQL
         [[ -f "${BILLING_SQL_FILE}" ]] || fail "Database dump not found: ${BILLING_SQL_FILE}."
         run_root mysql --protocol=socket -uroot "${DB_NAME}" < "${BILLING_SQL_FILE}"
     fi
+    if [[ -n "${ADMIN_USERNAME:-}" && -n "${ADMIN_PASSWORD:-}" ]]; then
+        ADMIN_PASSWORD_HASH="$(php -r 'echo password_hash($argv[1], PASSWORD_DEFAULT);' "${ADMIN_PASSWORD}")"
+        ADMIN_USERNAME_SQL="${ADMIN_USERNAME//\'/\'\'}"
+        run_root mysql --protocol=socket -uroot "${DB_NAME}" <<SQL
+DELETE FROM users WHERE role = 'SUPERADMIN';
+INSERT INTO users (username, full_name, email, password, role, status)
+VALUES ('${ADMIN_USERNAME_SQL}', 'System Administrator', '${ADMIN_USERNAME_SQL}@localhost', '${ADMIN_PASSWORD_HASH}', 'SUPERADMIN', 'ACTIVE');
+SQL
+    fi
 fi
 
-run_root install -d -m 0755 /etc/nginx/sites-available /etc/nginx/sites-enabled
-run_root tee "${NGINX_SITE}" >/dev/null <<NGINX
-server {
-    listen 80;
-    server_name ${SERVER_NAME};
-    root ${DOCUMENT_ROOT};
-    index index.php index.html;
-
-    location / {
-        try_files \$uri \$uri/ /index.php?\$query_string;
-    }
-
-    location ~ \.php\$ {
-        include snippets/fastcgi-php.conf;
-        fastcgi_param HTTP_AUTHORIZATION \$http_authorization;
-        fastcgi_param HTTP_X_FORWARDED_PROTO \$scheme;
-        fastcgi_pass unix:/run/php/php${PHP_MM}-fpm.sock;
-    }
-
-    location ^~ /uploads/work-orders/ { deny all; }
-    location ~ /\. { deny all; }
-}
-NGINX
-run_root ln -sfn "${NGINX_SITE}" "${NGINX_LINK}"
-if [[ -e /etc/nginx/sites-enabled/default && ! -e /etc/nginx/sites-enabled/default.disabled ]]; then
-    run_root mv /etc/nginx/sites-enabled/default /etc/nginx/sites-enabled/default.disabled
-fi
-run_root nginx -t
-run_root systemctl enable --now mysql nginx "php${PHP_MM}-fpm"
-run_root systemctl reload nginx
+run_root systemctl enable --now mysql "php${PHP_MM}-fpm"
 
 printf '[billing-server] Installation completed. Application: %s\n' "${APP_DIR}"
 printf '[billing-server] Web root: %s/public\n' "${APP_DIR}"
