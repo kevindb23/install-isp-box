@@ -3,6 +3,7 @@ set -Eeuo pipefail
 IFS=$'\n\t'
 
 readonly SCRIPT_URL="${SCRIPT_URL:-https://raw.githubusercontent.com/kevindb23/install-isp-box/main/install-billing-server.sh}"
+readonly SQL_URL="${SQL_URL:-https://raw.githubusercontent.com/kevindb23/install-isp-box/main/billing.sql}"
 readonly DEFAULT_REPOSITORY_URL="${REPOSITORY_URL:-https://github.com/kevindb23/ISP-Box.git}"
 readonly WORK_DIR="$(mktemp -d -t billing-system.XXXXXX)"
 trap 'rm -rf "${WORK_DIR}"' EXIT
@@ -40,5 +41,6 @@ else
 fi
 
 curl --fail --silent --show-error --location "${SCRIPT_URL}" -o "${WORK_DIR}/install-billing-server.sh"
+curl --fail --silent --show-error --location "${SQL_URL}" -o "${WORK_DIR}/billing.sql"
 chmod 700 "${WORK_DIR}/install-billing-server.sh"
-REPOSITORY_URL="${DEFAULT_REPOSITORY_URL}" "${bash_cmd[@]}" "${WORK_DIR}/install-billing-server.sh" "$@"
+REPOSITORY_URL="${DEFAULT_REPOSITORY_URL}" DB_NAME="${DB_NAME:-portal}" DB_USER="${DB_USER:-billing}" DB_PASSWORD="${DB_PASSWORD:-N3t3ng777}" BILLING_SQL_FILE="${WORK_DIR}/billing.sql" "${bash_cmd[@]}" "${WORK_DIR}/install-billing-server.sh" --setup-database "$@"
