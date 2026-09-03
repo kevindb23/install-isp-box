@@ -117,9 +117,12 @@ server {
 }
 NGINX
 ln -sfn "${NGINX_SITE}" "${NGINX_LINK}"
-if [[ -L /etc/nginx/sites-enabled/default || -f /etc/nginx/sites-enabled/default ]]; then
-    mv -f /etc/nginx/sites-enabled/default /etc/nginx/sites-enabled/default.disabled
-fi
+# Keep the default configuration available, but never leave its backup in
+# sites-enabled because Nginx loads every file in that directory.
+rm -f /etc/nginx/sites-enabled/default
+rm -f /etc/nginx/sites-enabled/default.disabled
 nginx -t
+systemctl daemon-reload
 systemctl enable --now nginx
 systemctl reload nginx
+
