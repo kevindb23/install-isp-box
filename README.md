@@ -10,7 +10,8 @@ Installation and removal scripts for an Ubuntu-based ISP service box.
 | [install-freeradius-3.2-jammy.sh](install-freeradius-3.2-jammy.sh) | Installs FreeRADIUS 3.2 from the InkBridge Networks repository on Ubuntu Jammy 22.04 amd64. |
 | [install-acs-server.sh](install-acs-server.sh) | Downloads, converts, and runs the ACS/GenieACS setup installer. |
 | [install-acs-server-setup.sh](install-acs-server-setup.sh) | Full GenieACS, MongoDB, Node.js, and service installation script. |
-| [install-billing-server.sh](install-billing-server.sh) | Installs the Laravel/PHP billing application, dependencies, frontend builds, and Nginx configuration. |
+| [install-billing-system.sh](install-billing-system.sh) | Bootstraps the billing installer from any Ubuntu/Debian shell and defaults to `kevindb23/ISP-Box`. |
+| [install-billing-server.sh](install-billing-server.sh) | Installs the ISP-Box PHP application, dependencies, frontend builds, and Nginx configuration. |
 
 ## Requirements
 
@@ -142,3 +143,21 @@ The uninstaller removes the cloned application and billing-specific Nginx config
 
 To also drop the database and local MySQL user, provide **DB_NAME** and **DB_USER** and use **--purge-database**.
 
+
+## Install the ISP-Box billing system
+
+For a fresh server, use the bootstrap installer:
+
+```bash
+wget -O install-billing-system.sh https://raw.githubusercontent.com/kevindb23/install-isp-box/main/install-billing-system.sh
+chmod +x install-billing-system.sh
+sudo ./install-billing-system.sh
+```
+
+It defaults to cloning [kevindb23/ISP-Box](https://github.com/kevindb23/ISP-Box) into `/var/www/billing-server`. Override the application repository when needed:
+
+```bash
+sudo REPOSITORY_URL=https://github.com/owner/app.git ./install-billing-system.sh
+```
+
+Use `--skip-build` to install dependencies without frontend builds, or `--setup-database` with `DB_NAME`, `DB_USER`, and `DB_PASSWORD` to create a MySQL database and user. The installer runs the root Vite build with the repository-compatible `--configLoader runner` option and builds `frontend-next` when present.
