@@ -74,19 +74,7 @@ if (( NODE_MAJOR < 18 )); then
 fi
 (( NODE_MAJOR >= 18 )) || fail "Node.js 18+ required; found $(node --version)."
 
-if [[ -d "${APP_DIR}/.git" ]]; then
-    CURRENT_REMOTE="$(git -C "${APP_DIR}" remote get-url origin 2>/dev/null || true)"
-    [[ -n "${CURRENT_REMOTE}" ]] || fail "Existing checkout has no origin remote: ${APP_DIR}."
-    git -C "${APP_DIR}" fetch --prune origin
-    git -C "${APP_DIR}" checkout "${BRANCH}"
-    git -C "${APP_DIR}" pull --ff-only origin "${BRANCH}"
-elif [[ -e "${APP_DIR}" ]]; then
-    fail "${APP_DIR} exists but is not a Git checkout."
-else
-    run_root install -d -m 0755 "$(dirname "${APP_DIR}")"
-    git clone --branch "${BRANCH}" --single-branch "${REPOSITORY_URL}" "${APP_DIR}"
-fi
-
+[[ -d "${APP_DIR}/.git" ]] || fail "Application checkout not found at ${APP_DIR}. Run install-billing-system.sh to clone it first."
 chown -R root:root "${APP_DIR}"
 cd "${APP_DIR}"
 [[ -f composer.json ]] || fail "The repository does not contain composer.json. Set REPOSITORY_URL to the billing application repository, for example https://github.com/kevindb23/ISP-Box.git; do not use install-isp-box."
