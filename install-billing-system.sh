@@ -77,6 +77,20 @@ DB_NAME_INPUT="${DB_NAME_INPUT:-portal}"
 [[ -n "${DB_USER_INPUT}" && -n "${DB_PASSWORD_INPUT}" && -n "${ADMIN_USERNAME_INPUT}" && -n "${ADMIN_PASSWORD_INPUT}" ]] || { echo 'All credentials are required.' >&2; exit 1; }
 REPOSITORY_URL="${DEFAULT_REPOSITORY_URL}" APP_DIR="${BILLING_APP_DIR}" DOCUMENT_ROOT="${BILLING_DOCUMENT_ROOT}" DB_NAME="${DB_NAME_INPUT}" DB_USER="${DB_USER_INPUT}" DB_PASSWORD="${DB_PASSWORD_INPUT}" ADMIN_USERNAME="${ADMIN_USERNAME_INPUT}" ADMIN_PASSWORD="${ADMIN_PASSWORD_INPUT}" BILLING_SQL_FILE="${WORK_DIR}/billing.sql" "${bash_cmd[@]}" "${WORK_DIR}/install-billing-server.sh" --setup-database "$@"
 
+chown -R root:root "${BILLING_APP_DIR}"
+cd "${BILLING_APP_DIR}"
+[[ -f composer.json ]] || { echo "The cloned billing repository must contain composer.json." >&2; exit 1; }
+composer install --no-interaction --prefer-dist --optimize-autoloader
+npm install
+if [[ -f frontend-next/package.json ]]; then npm --prefix frontend-next install; fi
+if [[ ! " $* " == *" --skip-build "* ]]; then
+    npm run build -- --configLoader runner
+    if [[ -f frontend-next/package.json ]]; then
+        npm --prefix frontend-next run typecheck
+        npm --prefix frontend-next run build
+    fi
+fi
+
 PHP_MM="$(php -r 'echo PHP_MAJOR_VERSION.".".PHP_MINOR_VERSION;')"
 install -d -m 0755 /etc/nginx/sites-available /etc/nginx/sites-enabled
 install -d -m 0755 "${BILLING_DOCUMENT_ROOT}"
