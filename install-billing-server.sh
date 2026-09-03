@@ -89,6 +89,7 @@ fi
 
 chown -R root:root "${APP_DIR}"
 cd "${APP_DIR}"
+[[ -f composer.json ]] || fail "The repository does not contain composer.json. Set REPOSITORY_URL to the billing application repository, for example https://github.com/kevindb23/ISP-Box.git; do not use install-isp-box."
 composer install --no-interaction --prefer-dist --optimize-autoloader
 npm install
 if [[ -f frontend-next/package.json ]]; then npm --prefix frontend-next install; fi
