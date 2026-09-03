@@ -121,13 +121,8 @@ These scripts are provided as-is for operational use. Accel-PPP, FreeRADIUS, FRR
 
 ## Install the billing server
 
-The billing server installer clones a Laravel/PHP application into **/var/www/billing-server**, installs Nginx, MySQL, PHP 8.1+, Composer, Node.js 18+, npm, Python 3, and project dependencies, then builds the root frontend and optional **frontend-next** frontend.
+The billing server installer installs Nginx, MySQL, PHP 8.1+, Composer, Node.js 18+, npm, Python 3, and system dependencies. It does not clone the billing application. Use the full system installer to clone and build the application into **/var/www/billing-server**.
 
-Set the application repository URL when running it:
-
-    wget -O install-billing-server.sh https://raw.githubusercontent.com/kevindb23/install-isp-box/main/install-billing-server.sh
-    chmod +x install-billing-server.sh
-    sudo REPOSITORY_URL=https://github.com/owner/your-billing-app.git ./install-billing-server.sh
 
 Options include **--skip-build** and **--setup-database**. The **BRANCH**, **APP_DIR**, and **SERVER_NAME** environment variables are also configurable.
 
