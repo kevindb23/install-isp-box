@@ -77,7 +77,40 @@ DB_NAME_INPUT="${DB_NAME_INPUT:-portal}"
 [[ -n "${DB_USER_INPUT}" && -n "${DB_PASSWORD_INPUT}" && -n "${ADMIN_USERNAME_INPUT}" && -n "${ADMIN_PASSWORD_INPUT}" ]] || { echo 'All credentials are required.' >&2; exit 1; }
 REPOSITORY_URL="${DEFAULT_REPOSITORY_URL}" APP_DIR="${BILLING_APP_DIR}" DOCUMENT_ROOT="${BILLING_DOCUMENT_ROOT}" DB_NAME="${DB_NAME_INPUT}" DB_USER="${DB_USER_INPUT}" DB_PASSWORD="${DB_PASSWORD_INPUT}" ADMIN_USERNAME="${ADMIN_USERNAME_INPUT}" ADMIN_PASSWORD="${ADMIN_PASSWORD_INPUT}" BILLING_SQL_FILE="${WORK_DIR}/billing.sql" "${bash_cmd[@]}" "${WORK_DIR}/install-billing-server.sh" --setup-database "$@"
 
+# The application reads its database and CoA settings from this PHP runtime
+# file. Preserve an existing file so reruns do not overwrite local settings.
+if [[ ! -f "${BILLING_APP_DIR}/.env.runtime.php" ]]; then
+    DB_USER_B64="$(printf '%s' "${DB_USER_INPUT}" | base64 -w0)"
+    DB_PASSWORD_B64="$(printf '%s' "${DB_PASSWORD_INPUT}" | base64 -w0)"
+    DB_NAME_B64="$(printf '%s' "${DB_NAME_INPUT}" | base64 -w0)"
+    install -m 0640 -o root -g www-data /dev/null "${BILLING_APP_DIR}/.env.runtime.php"
+    cat > "${BILLING_APP_DIR}/.env.runtime.php" <<PHP_RUNTIME
+<?php
+
+return [
+    'portal_db' => [
+        'host' => '127.0.0.1',
+        'user' => base64_decode('${DB_USER_B64}'),
+        'pass' => base64_decode('${DB_PASSWORD_B64}'),
+        'name' => base64_decode('${DB_NAME_B64}'),
+    ],
+    'coa' => [
+        'host' => '${COA_HOST:-127.0.0.1}',
+        'port' => ${COA_PORT:-3799},
+        'secret' => '${COA_SECRET:-CHANGE_ME}',
+        'radclient_path' => '/usr/bin/radclient',
+    ],
+];
+PHP_RUNTIME
+    chmod 0640 "${BILLING_APP_DIR}/.env.runtime.php"
+    chown root:www-data "${BILLING_APP_DIR}/.env.runtime.php"
+fi
+
 chown -R root:root "${BILLING_APP_DIR}"
+if [[ -f "${BILLING_APP_DIR}/.env.runtime.php" ]]; then
+    chmod 0640 "${BILLING_APP_DIR}/.env.runtime.php"
+    chown root:www-data "${BILLING_APP_DIR}/.env.runtime.php"
+fi
 cd "${BILLING_APP_DIR}"
 [[ -f composer.json ]] || { echo "The cloned billing repository must contain composer.json." >&2; exit 1; }
 composer install --no-interaction --prefer-dist --optimize-autoloader
