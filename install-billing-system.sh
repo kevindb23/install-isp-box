@@ -15,7 +15,7 @@ Bootstrap installer for the ISP-Box billing system.
 Environment:
   REPOSITORY_URL  Application Git URL; default: https://github.com/kevindb23/ISP-Box.git
   SCRIPT_URL      Installer URL; normally leave unchanged.
-  APP_DIR         Install directory; default: /var/www/billing
+  APP_DIR         Install directory; default: /var/www/billing-server
   SERVER_NAME     Nginx server_name; default: _
 EOF
 }
