@@ -2,8 +2,6 @@
 set -Eeuo pipefail
 IFS=$'\n\t'
 
-readonly APP_DIR="${APP_DIR:-/var/www/billing-server}"
-readonly BRANCH="${BRANCH:-main}"
 readonly BILLING_SQL_FILE="${BILLING_SQL_FILE:-}"
 
 SKIP_BUILD=0
@@ -11,7 +9,7 @@ SETUP_DATABASE=0
 
 usage() {
     cat <<'EOF'
-Usage: sudo REPOSITORY_URL=https://github.com/owner/app.git bash install-billing-server.sh [options]
+Usage: sudo bash install-billing-server.sh [options]
 
 Options:
   --skip-build       Install dependencies but do not build frontends.
@@ -19,9 +17,6 @@ Options:
   -h, --help         Show this help.
 
 Environment:
-  REPOSITORY_URL     Required Git repository URL.
-  BRANCH             Git branch; default: main.
-  APP_DIR            Install directory; default: /var/www/billing-server.
   SERVER_NAME        Nginx server_name; default: _.
 EOF
 }
@@ -38,7 +33,6 @@ done
 fail() { printf '[billing-server] ERROR: %s\n' "$*" >&2; exit 1; }
 trap 'fail "Installation failed near line ${LINENO}."' ERR
 
-REPOSITORY_URL="${REPOSITORY_URL:-https://github.com/kevindb23/ISP-Box.git}"
 [[ "${EUID}" -eq 0 ]] || { command -v sudo >/dev/null 2>&1 || fail "Run as root or install sudo."; SUDO=(sudo); }
 SUDO="${SUDO:-}"
 if [[ "${EUID}" -eq 0 ]]; then run_root() { "$@"; }; else run_root() { sudo "$@"; }; fi
@@ -74,22 +68,6 @@ if (( NODE_MAJOR < 18 )); then
 fi
 (( NODE_MAJOR >= 18 )) || fail "Node.js 18+ required; found $(node --version)."
 
-[[ -d "${APP_DIR}/.git" ]] || fail "Application checkout not found at ${APP_DIR}. Run install-billing-system.sh to clone it first."
-chown -R root:root "${APP_DIR}"
-cd "${APP_DIR}"
-[[ -f composer.json ]] || fail "The repository does not contain composer.json. Set REPOSITORY_URL to the billing application repository, for example https://github.com/kevindb23/ISP-Box.git; do not use install-isp-box."
-composer install --no-interaction --prefer-dist --optimize-autoloader
-npm install
-if [[ -f frontend-next/package.json ]]; then npm --prefix frontend-next install; fi
-
-if (( SKIP_BUILD == 0 )); then
-    npm run build -- --configLoader runner
-    if [[ -f frontend-next/package.json ]]; then
-        npm --prefix frontend-next run typecheck
-        npm --prefix frontend-next run build
-    fi
-fi
-
 if (( SETUP_DATABASE == 1 )); then
     : "${DB_NAME:?DB_NAME is required with --setup-database}"
     : "${DB_USER:?DB_USER is required with --setup-database}"
@@ -122,5 +100,4 @@ fi
 
 run_root systemctl enable --now mysql "php${PHP_MM}-fpm"
 
-printf '[billing-server] Installation completed. Application: %s\n' "${APP_DIR}"
-printf '[billing-server] Web root: %s/public\n' "${APP_DIR}"
+printf '[billing-server] Server dependencies and MySQL setup completed.\n'
