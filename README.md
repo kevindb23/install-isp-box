@@ -161,3 +161,20 @@ sudo REPOSITORY_URL=https://github.com/owner/app.git ./install-billing-system.sh
 ```
 
 Use `--skip-build` to install dependencies without frontend builds, or `--setup-database` with `DB_NAME`, `DB_USER`, and `DB_PASSWORD` to create a MySQL database and user. The installer runs the root Vite build with the repository-compatible `--configLoader runner` option and builds `frontend-next` when present.
+
+
+## Uninstall the ISP-Box billing system
+
+For a fresh-server removal, use the cleanup wrapper:
+
+```bash
+wget -O uninstall-billing-system.sh https://raw.githubusercontent.com/kevindb23/install-isp-box/main/uninstall-billing-system.sh
+chmod +x uninstall-billing-system.sh
+sudo ./uninstall-billing-system.sh
+```
+
+Use `--yes` for automation. The application, generated dependencies, build files, and billing-specific Nginx site are removed; shared packages and the database are preserved by default. To explicitly delete the billing database and MySQL user:
+
+```bash
+sudo DB_NAME=billing DB_USER=billing DB_PASSWORD='your-password' ./uninstall-billing-system.sh --yes --purge-database
+```
