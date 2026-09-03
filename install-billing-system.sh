@@ -1,4 +1,3 @@
-
 #!/usr/bin/env bash
 set -Eeuo pipefail
 IFS=$'\n\t'
@@ -16,7 +15,7 @@ Bootstrap installer for the ISP-Box billing system.
 Environment:
   REPOSITORY_URL  Application Git URL; default: https://github.com/kevindb23/ISP-Box.git
   SCRIPT_URL      Installer URL; normally leave unchanged.
-  APP_DIR         Install directory; default: /var/www/billing-server
+  APP_DIR         Install directory; default: /var/www/billing
   SERVER_NAME     Nginx server_name; default: _
 EOF
 }
