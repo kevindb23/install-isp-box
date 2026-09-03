@@ -17,7 +17,7 @@ Shared packages are preserved. The database is preserved unless
 
 Environment:
   SCRIPT_URL  Uninstaller URL; normally leave unchanged.
-  APP_DIR     Install directory; default: /var/www/billing-server
+  APP_DIR     Install directory; default: /var/www/billing
   DB_NAME     Database to remove with --purge-database
   DB_USER     MySQL user to remove with --purge-database
 EOF
