@@ -2,7 +2,7 @@
 set -Eeuo pipefail
 IFS=$'\n\t'
 
-readonly APP_DIR="${APP_DIR:-/var/www/billing-server}"
+readonly APP_DIR="${APP_DIR:-/var/www/billing}"
 readonly NGINX_SITE="/etc/nginx/sites-available/billing-server"
 readonly NGINX_LINK="/etc/nginx/sites-enabled/billing-server"
 ASSUME_YES=0
@@ -66,4 +66,3 @@ printf '[billing-server] Application files and Nginx configuration removed.\n'
 if (( PURGE_DATABASE == 0 )); then
     printf '[billing-server] MySQL database and shared packages were preserved.\n'
 fi
-
