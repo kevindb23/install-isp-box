@@ -40,7 +40,7 @@ done
 fail() { printf '[billing-server] ERROR: %s\n' "$*" >&2; exit 1; }
 trap 'fail "Installation failed near line ${LINENO}."' ERR
 
-[[ -n "${REPOSITORY_URL:-}" ]] || fail "REPOSITORY_URL is required."
+REPOSITORY_URL="${REPOSITORY_URL:-https://github.com/kevindb23/ISP-Box.git}"
 [[ "${EUID}" -eq 0 ]] || { command -v sudo >/dev/null 2>&1 || fail "Run as root or install sudo."; SUDO=(sudo); }
 SUDO="${SUDO:-}"
 if [[ "${EUID}" -eq 0 ]]; then run_root() { "$@"; }; else run_root() { sudo "$@"; }; fi
@@ -54,7 +54,7 @@ export DEBIAN_FRONTEND=noninteractive
 run_root apt-get update
 run_root apt-get install -y ca-certificates curl git unzip nginx mysql-server \
     php-cli php-fpm php-common php-mysql php-curl php-mbstring php-xml php-zip \
-    python3 python3-pip nodejs composer
+    python3 python3-pip composer
 
 PHP_MM="$(php -r 'echo PHP_MAJOR_VERSION.".".PHP_MINOR_VERSION;')"
 PHP_MAJOR="${PHP_MM%%.*}"
@@ -63,11 +63,13 @@ PHP_MINOR="${PHP_MM##*.}"
 command -v composer >/dev/null 2>&1 || fail "Composer installation failed."
 command -v python3 >/dev/null 2>&1 || fail "Python 3 installation failed."
 
-NODE_MAJOR="$(node --version | sed 's/^v//' | cut -d. -f1)"
+if command -v node >/dev/null 2>&1; then
+    NODE_MAJOR="$(node --version | sed 's/^v//' | cut -d. -f1)"
+else
+    NODE_MAJOR=0
+fi
 if (( NODE_MAJOR < 18 )); then
-    if dpkg-query -W -f='${db:Status-Status}' libnode-dev 2>/dev/null | grep -qx installed; then
-        apt-get remove -y libnode-dev
-    fi
+    run_root apt-get remove -y npm libnode-dev >/dev/null 2>&1 || true
     curl --fail --silent --show-error --location https://deb.nodesource.com/setup_20.x | run_root bash -
     run_root apt-get install -y nodejs
     NODE_MAJOR="$(node --version | sed 's/^v//' | cut -d. -f1)"
@@ -75,6 +77,8 @@ fi
 (( NODE_MAJOR >= 18 )) || fail "Node.js 18+ required; found $(node --version)."
 
 if [[ -d "${APP_DIR}/.git" ]]; then
+    CURRENT_REMOTE="$(git -C "${APP_DIR}" remote get-url origin 2>/dev/null || true)"
+    [[ -n "${CURRENT_REMOTE}" ]] || fail "Existing checkout has no origin remote: ${APP_DIR}."
     git -C "${APP_DIR}" fetch --prune origin
     git -C "${APP_DIR}" checkout "${BRANCH}"
     git -C "${APP_DIR}" pull --ff-only origin "${BRANCH}"
@@ -92,7 +96,7 @@ npm install
 if [[ -f frontend-next/package.json ]]; then npm --prefix frontend-next install; fi
 
 if (( SKIP_BUILD == 0 )); then
-    npm run build
+    npm run build -- --configLoader runner
     if [[ -f frontend-next/package.json ]]; then
         npm --prefix frontend-next run typecheck
         npm --prefix frontend-next run build
@@ -130,9 +134,12 @@ server {
 
     location ~ \.php\$ {
         include snippets/fastcgi-php.conf;
+        fastcgi_param HTTP_AUTHORIZATION \$http_authorization;
+        fastcgi_param HTTP_X_FORWARDED_PROTO \$scheme;
         fastcgi_pass unix:/run/php/php${PHP_MM}-fpm.sock;
     }
 
+    location ^~ /uploads/work-orders/ { deny all; }
     location ~ /\. { deny all; }
 }
 NGINX
@@ -146,4 +153,3 @@ run_root systemctl reload nginx
 
 printf '[billing-server] Installation completed. Application: %s\n' "${APP_DIR}"
 printf '[billing-server] Web root: %s/public\n' "${APP_DIR}"
-
