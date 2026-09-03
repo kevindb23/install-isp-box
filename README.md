@@ -121,7 +121,7 @@ These scripts are provided as-is for operational use. Accel-PPP, FreeRADIUS, FRR
 
 ## Install the billing server
 
-The billing server installer clones a Laravel/PHP application into **/var/www/billing**, installs Nginx, MySQL, PHP 8.1+, Composer, Node.js 18+, npm, Python 3, and project dependencies, then builds the root frontend and optional **frontend-next** frontend.
+The billing server installer clones a Laravel/PHP application into **/var/www/billing-server**, installs Nginx, MySQL, PHP 8.1+, Composer, Node.js 18+, npm, Python 3, and project dependencies, then builds the root frontend and optional **frontend-next** frontend.
 
 Set the application repository URL when running it:
 
@@ -131,7 +131,7 @@ Set the application repository URL when running it:
 
 Options include **--skip-build** and **--setup-database**. The **BRANCH**, **APP_DIR**, and **SERVER_NAME** environment variables are also configurable.
 
-The Nginx web root is **/var/www/billing/public**. Repeat runs update an existing checkout and do not overwrite an existing **.env** file.
+The Nginx web root is **/var/www/billing-server/public**. Repeat runs update an existing checkout and do not overwrite an existing **.env** file.
 
 ## Uninstall the billing server
 
@@ -154,7 +154,7 @@ chmod +x install-billing-system.sh
 sudo ./install-billing-system.sh
 ```
 
-It defaults to cloning [kevindb23/ISP-Box](https://github.com/kevindb23/ISP-Box) into `/var/www/billing`. Override the application repository when needed:
+It defaults to cloning [kevindb23/ISP-Box](https://github.com/kevindb23/ISP-Box) into `/var/www/billing-server`. Override the application repository when needed:
 
 ```bash
 sudo REPOSITORY_URL=https://github.com/owner/app.git ./install-billing-system.sh
