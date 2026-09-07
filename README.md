@@ -7,7 +7,7 @@ Installation and removal scripts for an Ubuntu-based ISP service box.
 | Script | Purpose |
 |---|---|
 | [install-accel-ppp.sh](install-accel-ppp.sh) | Builds and installs Accel-PPP, FRR, FRR Python tools, and iptables. Enables IPv4/IPv6 forwarding. |
-| [install-freeradius-3.2-jammy.sh](install-freeradius-3.2-jammy.sh) | Installs FreeRADIUS 3.2 from the InkBridge Networks repository on Ubuntu Jammy 22.04 amd64. |
+| [install-freeradius-3.2-jammy.sh](install-freeradius-3.2-jammy.sh) | Installs FreeRADIUS 3.0 with MySQL support on Ubuntu Jammy 22.04 amd64. |
 | [install-acs-server.sh](install-acs-server.sh) | Downloads, converts, and runs the ACS/GenieACS setup installer. |
 | [install-acs-server-setup.sh](install-acs-server-setup.sh) | Full GenieACS, MongoDB, Node.js, and service installation script. |
 | [install-billing-system.sh](install-billing-system.sh) | Bootstraps the billing installer from any Ubuntu/Debian shell and defaults to `kevindb23/ISP-Box`. |

@@ -1,16 +1,9 @@
 #!/usr/bin/env bash
-# Install FreeRADIUS 3.2 on Ubuntu Jammy 22.04 from InkBridge Networks.
-# Based on: https://packages.inkbridgenetworks.com/#fr32-ubuntu-jammy
+# Install FreeRADIUS 3.0 with MySQL support on Ubuntu Jammy 22.04.
 
 set -Eeuo pipefail
 IFS=$'\n\t'
 
-readonly KEYRING_DIR="/etc/apt/keyrings"
-readonly KEYRING_FILE="${KEYRING_DIR}/packages.networkradius.com.asc"
-readonly SOURCE_FILE="/etc/apt/sources.list.d/inkbridge.list"
-readonly PREFERENCES_FILE="/etc/apt/preferences.d/networkradius"
-readonly KEY_URL="https://packages.inkbridgenetworks.com/pgp/packages.networkradius.com.asc"
-readonly REPOSITORY_URL="http://packages.inkbridgenetworks.com/freeradius-3.2/ubuntu/jammy"
 
 log() {
     printf '[freeradius] %s\n' "$*"
@@ -30,7 +23,7 @@ command -v apt-get >/dev/null 2>&1 || die "This installer requires Ubuntu with a
 source /etc/os-release
 [[ "${ID:-}" == "ubuntu" ]] || die "This installer supports Ubuntu only. Detected: ${ID:-unknown}."
 [[ "${VERSION_ID:-}" == "22.04" ]] || die "This installer targets Ubuntu Jammy 22.04. Detected: ${VERSION_ID:-unknown}."
-[[ "$(dpkg --print-architecture)" == "amd64" ]] || die "The InkBridge Jammy repository is configured for amd64 only."
+[[ "$(dpkg --print-architecture)" == "amd64" ]] || die "This installer supports amd64 only."
 
 export DEBIAN_FRONTEND=noninteractive
 
@@ -38,33 +31,11 @@ log "Installing repository prerequisites."
 apt-get update
 apt-get install -y ca-certificates curl mysql-client
 
-log "Installing the InkBridge Networks package signing key."
-install -d -o root -g root -m 0755 "${KEYRING_DIR}"
-curl --fail --silent --show-error --location "${KEY_URL}" \
-    | install -o root -g root -m 0644 /dev/stdin "${KEYRING_FILE}"
-
-log "Configuring the InkBridge Networks APT repository."
-cat > "${PREFERENCES_FILE}" <<'EOF'
-Package: /freeradius/
-Pin: origin "packages.inkbridgenetworks.com"
-Pin-Priority: 999
-EOF
-chmod 0644 "${PREFERENCES_FILE}"
-
-cat > "${SOURCE_FILE}" <<EOF
-deb [arch=amd64 signed-by=${KEYRING_FILE}] ${REPOSITORY_URL} jammy main
-EOF
-chmod 0644 "${SOURCE_FILE}"
-
 log "Refreshing APT metadata."
 apt-get update
 
-log "Installing FreeRADIUS 3.2 packages with MySQL support."
-apt-get install -y freeradius freeradius-utils freeradius-mysql
-
-RADIUS_VERSION="$(freeradius -v 2>/dev/null | sed -n 's/.*FreeRADIUS Version \([0-9][0-9.]*\).*/\1/p' | head -n1)"
-[[ "${RADIUS_VERSION}" == 3.2.* ]] || die "FreeRADIUS 3.2 was not installed. Detected version: ${RADIUS_VERSION:-unknown}. Check the InkBridge APT repository and pinning."
-log "Verified FreeRADIUS version ${RADIUS_VERSION}."
+log "Installing Ubuntu FreeRADIUS 3.0 packages with MySQL support."
+apt-get install -y freeradius freeradius-utils freeradius-mysql mysql-client
 
 command -v mysql >/dev/null 2>&1 || die "The mysql client is required for RADIUS database setup."
 
@@ -85,35 +56,26 @@ GRANT ALL PRIVILEGES ON \`${RADIUS_DB_NAME}\`.* TO '${RADIUS_DB_USER}'@'localhos
 FLUSH PRIVILEGES;
 SQL
 
-SCHEMA_FILE=""
-for candidate in \
-    /etc/freeradius/3.2/mods-config/sql/main/mysql/schema.sql \
-    /etc/freeradius/mods-config/sql/main/mysql/schema.sql \
-    /etc/freeradius/sql/mysql/schema.sql; do
-    if [[ -f "${candidate}" ]]; then SCHEMA_FILE="${candidate}"; break; fi
-done
-[[ -n "${SCHEMA_FILE}" ]] || die "FreeRADIUS MySQL schema.sql was not found."
+SCHEMA_FILE="/etc/freeradius/sql/mysql/schema.sql"
+[[ -f "${SCHEMA_FILE}" ]] || die "FreeRADIUS MySQL schema.sql was not found at ${SCHEMA_FILE}."
 mysql --protocol=socket -uroot "${RADIUS_DB_NAME}" < "${SCHEMA_FILE}"
 
-SQL_MODULE="/etc/freeradius/3.2/mods-available/sql"
-[[ -f "${SQL_MODULE}" ]] || SQL_MODULE="/etc/freeradius/mods-available/sql"
-[[ -f "${SQL_MODULE}" ]] || die "FreeRADIUS SQL module configuration was not found."
+SQL_CONF="/etc/freeradius/sql.conf"
+[[ -f "${SQL_CONF}" ]] || die "FreeRADIUS SQL configuration was not found at ${SQL_CONF}."
 sed -i \
-    -e 's|^[[:space:]]*driver[[:space:]]*=.*|\tdriver = "rlm_sql_mysql"|' \
-    -e "s|^[[:space:]]*server[[:space:]]*=.*|\tserver = \"${RADIUS_DB_HOST}\"|" \
-    -e "s|^[[:space:]]*port[[:space:]]*=.*|\tport = ${RADIUS_DB_PORT}|" \
-    -e "s|^[[:space:]]*login[[:space:]]*=.*|\tlogin = \"${RADIUS_DB_USER}\"|" \
-    -e "s|^[[:space:]]*password[[:space:]]*=.*|\tpassword = \"${DB_PASSWORD_SQL}\"|" \
-    -e "s|^[[:space:]]*radius_db[[:space:]]*=.*|\tradius_db = \"${RADIUS_DB_NAME}\"|" \
-    "${SQL_MODULE}"
-SQL_LINK="$(dirname "${SQL_MODULE}")/../mods-enabled/sql"
-ln -sfn "../mods-available/sql" "${SQL_LINK}"
-
-for SITE in /etc/freeradius/3.2/sites-enabled/default /etc/freeradius/sites-enabled/default; do
-    if [[ -f "${SITE}" ]]; then
-        sed -i '/^[[:space:]]*#*[[:space:]]*sql[[:space:]]*$/s/^[[:space:]]*#*[[:space:]]*/        /' "${SITE}"
-    fi
-done
+    -e 's|^[[:space:]]*driver[[:space:]]*=.*|driver = "rlm_sql_mysql"|' \
+    -e "s|^[[:space:]]*server[[:space:]]*=.*|server = \"${RADIUS_DB_HOST}\"|" \
+    -e "s|^[[:space:]]*port[[:space:]]*=.*|port = ${RADIUS_DB_PORT}|" \
+    -e "s|^[[:space:]]*login[[:space:]]*=.*|login = \"${RADIUS_DB_USER}\"|" \
+    -e "s|^[[:space:]]*password[[:space:]]*=.*|password = \"${DB_PASSWORD_SQL}\"|" \
+    -e "s|^[[:space:]]*radius_db[[:space:]]*=.*|radius_db = \"${RADIUS_DB_NAME}\"|" \
+    "${SQL_CONF}"
+RADIUSD_CONF="/etc/freeradius/radiusd.conf"
+[[ -f "${RADIUSD_CONF}" ]] || die "FreeRADIUS configuration was not found at ${RADIUSD_CONF}."
+grep -Eq '^[[:space:]]*\$INCLUDE[[:space:]]+sql\.conf' "${RADIUSD_CONF}" || printf '\n\$INCLUDE sql.conf\n' >> "${RADIUSD_CONF}"
+SITE="/etc/freeradius/sites-available/default"
+[[ -f "${SITE}" ]] || die "FreeRADIUS default site was not found at ${SITE}."
+sed -i '/^[[:space:]]*#*[[:space:]]*sql[[:space:]]*$/s/^[[:space:]]*#*[[:space:]]*/        /' "${SITE}"
 
 log "Verifying the seven core RADIUS SQL tables."
 TABLE_COUNT="$(mysql --protocol=socket -u"${RADIUS_DB_USER}" -p"${RADIUS_DB_PASSWORD}" -N -B "${RADIUS_DB_NAME}" -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='${RADIUS_DB_NAME}' AND table_name IN ('radacct','radcheck','radgroupcheck','radgroupreply','radpostauth','radreply','radusergroup');")"
