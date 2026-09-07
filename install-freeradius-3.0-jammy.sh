@@ -66,7 +66,10 @@ for candidate in \
         break
     fi
 done
-[[ -n "${SCHEMA_FILE}" ]] || die "FreeRADIUS MySQL schema.sql was not found in the installed package."
+if [[ -z "${SCHEMA_FILE}" ]]; then
+    SCHEMA_FILE="$(find /etc/freeradius -type f -path '*/mysql/schema.sql' -print -quit 2>/dev/null || true)"
+fi
+[[ -n "${SCHEMA_FILE}" ]] || die "FreeRADIUS MySQL schema.sql was not found. Checked the installed /etc/freeradius tree."
 mysql --protocol=socket -uroot "${RADIUS_DB_NAME}" < "${SCHEMA_FILE}"
 
 SQL_CONF=""
