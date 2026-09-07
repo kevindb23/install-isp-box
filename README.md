@@ -87,6 +87,20 @@ sudo env \
 
 The script expects local MySQL root socket access to create the database and SQL user. It does not add sample credentials such as `test/1234567`; add production subscriber credentials through the application or your own controlled SQL process.
 
+## Uninstall FreeRADIUS 3.0
+
+```bash
+wget -O uninstall-freeradius-jammy.sh https://raw.githubusercontent.com/kevindb23/install-isp-box/main/uninstall-freeradius-jammy.sh
+chmod +x uninstall-freeradius-jammy.sh
+sudo ./uninstall-freeradius-jammy.sh
+```
+
+The uninstaller removes the FreeRADIUS 3.0 packages, `/etc/freeradius`, logs,
+the `radius` database, and the dedicated `raduser` SQL account. It preserves
+the MySQL/MariaDB server and the billing database. Use `--yes` for unattended
+removal. Override `RADIUS_DB_NAME` and `RADIUS_DB_USER` if custom values were
+used during installation.
+
 ## Install the ACS server
 
 The wrapper installs `dos2unix`, downloads the full setup script, converts it to Unix line endings, and runs it:
@@ -110,20 +124,6 @@ sudo ./uninstall-accel-ppp.sh
 ```
 
 Use `--purge-config` to also remove `/etc/accel-ppp.conf` and FRR configuration.
-
-FreeRADIUS:
-
-```bash
-wget -O uninstall-freeradius-jammy.sh https://raw.githubusercontent.com/kevindb23/install-isp-box/main/uninstall-freeradius-jammy.sh
-chmod +x uninstall-freeradius-jammy.sh
-sudo ./uninstall-freeradius-jammy.sh
-```
-
-The uninstaller removes the FreeRADIUS 3.0 packages, `/etc/freeradius`, logs,
-the `radius` database, and the dedicated `raduser` SQL account. It preserves
-the MySQL/MariaDB server and the billing database. Use `--yes` for unattended
-removal. Override `RADIUS_DB_NAME` and `RADIUS_DB_USER` if custom values were
-used during installation.
 
 ACS/GenieACS:
 
