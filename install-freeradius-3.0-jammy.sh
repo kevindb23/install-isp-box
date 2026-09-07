@@ -88,6 +88,11 @@ sed -i \
     -e "s|^[[:space:]]*password[[:space:]]*=.*|password = \"${DB_PASSWORD_SQL}\"|" \
     -e "s|^[[:space:]]*radius_db[[:space:]]*=.*|radius_db = \"${RADIUS_DB_NAME}\"|" \
     "${SQL_CONF}"
+# Ubuntu's packaged SQL module may reference a non-existent example CA file.
+# Use the system CA bundle so FreeRADIUS can parse the module on a fresh host.
+if [[ -f /etc/ssl/certs/ca-certificates.crt ]]; then
+    sed -i 's|^[[:space:]]*ca_file[[:space:]]*=.*|ca_file = /etc/ssl/certs/ca-certificates.crt|' "${SQL_CONF}"
+fi
 RADIUSD_CONF="/etc/freeradius/3.0/radiusd.conf"
 [[ -f "${RADIUSD_CONF}" ]] || RADIUSD_CONF="/etc/freeradius/radiusd.conf"
 [[ -f "${RADIUSD_CONF}" ]] || die "FreeRADIUS configuration was not found at ${RADIUSD_CONF}."
