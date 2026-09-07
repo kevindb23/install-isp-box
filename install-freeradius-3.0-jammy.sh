@@ -56,12 +56,27 @@ GRANT ALL PRIVILEGES ON \`${RADIUS_DB_NAME}\`.* TO '${RADIUS_DB_USER}'@'localhos
 FLUSH PRIVILEGES;
 SQL
 
-SCHEMA_FILE="/etc/freeradius/sql/mysql/schema.sql"
-[[ -f "${SCHEMA_FILE}" ]] || die "FreeRADIUS MySQL schema.sql was not found at ${SCHEMA_FILE}."
+SCHEMA_FILE=""
+for candidate in \
+    /etc/freeradius/3.0/mods-config/sql/main/mysql/schema.sql \
+    /etc/freeradius/mods-config/sql/main/mysql/schema.sql \
+    /etc/freeradius/sql/mysql/schema.sql; do
+    if [[ -f "${candidate}" ]]; then
+        SCHEMA_FILE="${candidate}"
+        break
+    fi
+done
+[[ -n "${SCHEMA_FILE}" ]] || die "FreeRADIUS MySQL schema.sql was not found in the installed package."
 mysql --protocol=socket -uroot "${RADIUS_DB_NAME}" < "${SCHEMA_FILE}"
 
-SQL_CONF="/etc/freeradius/sql.conf"
-[[ -f "${SQL_CONF}" ]] || die "FreeRADIUS SQL configuration was not found at ${SQL_CONF}."
+SQL_CONF=""
+for candidate in /etc/freeradius/3.0/mods-available/sql /etc/freeradius/sql.conf; do
+    if [[ -f "${candidate}" ]]; then
+        SQL_CONF="${candidate}"
+        break
+    fi
+done
+[[ -n "${SQL_CONF}" ]] || die "FreeRADIUS SQL configuration was not found."
 sed -i \
     -e 's|^[[:space:]]*driver[[:space:]]*=.*|driver = "rlm_sql_mysql"|' \
     -e "s|^[[:space:]]*server[[:space:]]*=.*|server = \"${RADIUS_DB_HOST}\"|" \
@@ -70,12 +85,19 @@ sed -i \
     -e "s|^[[:space:]]*password[[:space:]]*=.*|password = \"${DB_PASSWORD_SQL}\"|" \
     -e "s|^[[:space:]]*radius_db[[:space:]]*=.*|radius_db = \"${RADIUS_DB_NAME}\"|" \
     "${SQL_CONF}"
-RADIUSD_CONF="/etc/freeradius/radiusd.conf"
+RADIUSD_CONF="/etc/freeradius/3.0/radiusd.conf"
+[[ -f "${RADIUSD_CONF}" ]] || RADIUSD_CONF="/etc/freeradius/radiusd.conf"
 [[ -f "${RADIUSD_CONF}" ]] || die "FreeRADIUS configuration was not found at ${RADIUSD_CONF}."
-grep -Eq '^[[:space:]]*\$INCLUDE[[:space:]]+sql\.conf' "${RADIUSD_CONF}" || printf '\n\$INCLUDE sql.conf\n' >> "${RADIUSD_CONF}"
-SITE="/etc/freeradius/sites-available/default"
+SITE="/etc/freeradius/3.0/sites-available/default"
+[[ -f "${SITE}" ]] || SITE="/etc/freeradius/sites-available/default"
 [[ -f "${SITE}" ]] || die "FreeRADIUS default site was not found at ${SITE}."
-sed -i '/^[[:space:]]*#*[[:space:]]*sql[[:space:]]*$/s/^[[:space:]]*#*[[:space:]]*/        /' "${SITE}"
+if [[ "${SQL_CONF}" == */mods-available/sql ]]; then
+    mkdir -p /etc/freeradius/3.0/mods-enabled
+    ln -sfn ../mods-available/sql /etc/freeradius/3.0/mods-enabled/sql
+else
+    grep -Eq '^[[:space:]]*\$INCLUDE[[:space:]]+sql\.conf' "${RADIUSD_CONF}" || printf '\n\$INCLUDE sql.conf\n' >> "${RADIUSD_CONF}"
+    sed -i '/^[[:space:]]*#*[[:space:]]*sql[[:space:]]*$/s/^[[:space:]]*#*[[:space:]]*/        /' "${SITE}"
+fi
 
 log "Verifying the seven core RADIUS SQL tables."
 TABLE_COUNT="$(mysql --protocol=socket -u"${RADIUS_DB_USER}" -p"${RADIUS_DB_PASSWORD}" -N -B "${RADIUS_DB_NAME}" -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='${RADIUS_DB_NAME}' AND table_name IN ('radacct','radcheck','radgroupcheck','radgroupreply','radpostauth','radreply','radusergroup');")"
