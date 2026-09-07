@@ -45,7 +45,7 @@ source /etc/os-release
 export DEBIAN_FRONTEND=noninteractive
 run_root apt-get update
 run_root apt-get install -y ca-certificates curl git unzip nginx mysql-server \
-    php-cli php-fpm php-common php-mysql php-curl php-mbstring php-xml php-zip \
+    php-cli php-fpm php-common php-mysql php-curl php-mbstring php-xml php-zip sshpass \
     python3 python3-pip composer
 
 PHP_MM="$(php -r 'echo PHP_MAJOR_VERSION.".".PHP_MINOR_VERSION;')"
