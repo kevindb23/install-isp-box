@@ -44,6 +44,7 @@ RADIUS_DB_USER="${RADIUS_DB_USER:-raduser}"
 RADIUS_DB_PASSWORD="${RADIUS_DB_PASSWORD:-radpasswd}"
 RADIUS_DB_HOST="${RADIUS_DB_HOST:-localhost}"
 RADIUS_DB_PORT="${RADIUS_DB_PORT:-3306}"
+RADIUS_SCHEMA_URL="${RADIUS_SCHEMA_URL:-https://raw.githubusercontent.com/kevindb23/install-isp-box/main/radius.sql}"
 
 log "Creating the RADIUS database and SQL account."
 DB_PASSWORD_SQL="${RADIUS_DB_PASSWORD//\\/\\\\}"
@@ -56,21 +57,13 @@ GRANT ALL PRIVILEGES ON \`${RADIUS_DB_NAME}\`.* TO '${RADIUS_DB_USER}'@'localhos
 FLUSH PRIVILEGES;
 SQL
 
-SCHEMA_FILE=""
-for candidate in \
-    /etc/freeradius/3.0/mods-config/sql/main/mysql/schema.sql \
-    /etc/freeradius/mods-config/sql/main/mysql/schema.sql \
-    /etc/freeradius/sql/mysql/schema.sql; do
-    if [[ -f "${candidate}" ]]; then
-        SCHEMA_FILE="${candidate}"
-        break
-    fi
-done
-if [[ -z "${SCHEMA_FILE}" ]]; then
-    SCHEMA_FILE="$(find /etc/freeradius -type f -path '*/mysql/schema.sql' -print -quit 2>/dev/null || true)"
-fi
-[[ -n "${SCHEMA_FILE}" ]] || die "FreeRADIUS MySQL schema.sql was not found. Checked the installed /etc/freeradius tree."
+SCHEMA_FILE="$(mktemp /tmp/radius-schema.XXXXXX.sql)"
+trap 'rm -f "${SCHEMA_FILE}"; die "Installation failed near line ${LINENO}."' ERR
+log "Downloading the repository RADIUS schema."
+curl --fail --silent --show-error --location "${RADIUS_SCHEMA_URL}" -o "${SCHEMA_FILE}"
+[[ -s "${SCHEMA_FILE}" ]] || die "The repository RADIUS schema download was empty."
 mysql --protocol=socket -uroot "${RADIUS_DB_NAME}" < "${SCHEMA_FILE}"
+rm -f "${SCHEMA_FILE}"
 
 SQL_CONF=""
 for candidate in /etc/freeradius/3.0/mods-available/sql /etc/freeradius/sql.conf; do
