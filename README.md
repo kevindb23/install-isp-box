@@ -51,7 +51,7 @@ sudo systemctl status accel-ppp frr
 
 FRR protocols such as BGP and OSPF are not enabled automatically. Configure `/etc/frr/daemons`, then restart FRR.
 
-## Install FreeRADIUS 3.2
+## Install FreeRADIUS 3.0
 
 This installer is specifically for Ubuntu Jammy 22.04 amd64:
 
@@ -61,7 +61,7 @@ chmod +x install-freeradius-3.2-jammy.sh
 sudo ./install-freeradius-3.2-jammy.sh
 ```
 
-It installs and verifies FreeRADIUS 3.2 with `freeradius-mysql` and `freeradius-utils` from InkBridge Networks. If APT selects Ubuntu's stock FreeRADIUS 3.0 package, the installer stops instead of continuing with the wrong version. It creates the `radius` database and SQL account, imports the packaged MySQL schema, enables the SQL module in the default site, and verifies the seven core tables: `radacct`, `radcheck`, `radgroupcheck`, `radgroupreply`, `radpostauth`, `radreply`, and `radusergroup`.
+It installs FreeRADIUS 3.0 with `freeradius-mysql` and `freeradius-utils`, creates the `radius` database and SQL account, imports the packaged MySQL schema, enables the SQL module in the default site, and verifies the seven core tables: `radacct`, `radcheck`, `radgroupcheck`, `radgroupreply`, `radpostauth`, `radreply`, and `radusergroup`.
 
 The default database settings are:
 
