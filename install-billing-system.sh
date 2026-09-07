@@ -2,97 +2,138 @@
 set -Eeuo pipefail
 IFS=$'\n\t'
 
-readonly SCRIPT_URL="${SCRIPT_URL:-https://raw.githubusercontent.com/kevindb23/install-isp-box/main/install-billing-server.sh}"
-readonly SQL_URL="${SQL_URL:-https://raw.githubusercontent.com/kevindb23/install-isp-box/main/billing.sql}"
-readonly DEFAULT_REPOSITORY_URL="${REPOSITORY_URL:-https://github.com/kevindb23/ISP-Box.git}"
-readonly BILLING_APP_DIR="${APP_DIR:-/var/www/billing-server}"
-readonly BILLING_DOCUMENT_ROOT="${DOCUMENT_ROOT:-/var/www/billing-server/public}"
-readonly NGINX_SITE="/etc/nginx/sites-available/billing-server"
-readonly NGINX_LINK="/etc/nginx/sites-enabled/billing-server"
-readonly WORK_DIR="$(mktemp -d -t billing-system.XXXXXX)"
-trap 'rm -rf "${WORK_DIR}"' EXIT
+REPOSITORY_URL="${REPOSITORY_URL:-https://github.com/kevindb23/ISP-Box.git}"
+APP_DIR="${APP_DIR:-/var/www/billing-server}"
+DOCUMENT_ROOT="${DOCUMENT_ROOT:-${APP_DIR}/public}"
+BRANCH="${BRANCH:-main}"
+NGINX_SITE="/etc/nginx/sites-available/billing-server"
+NGINX_LINK="/etc/nginx/sites-enabled/billing-server"
+WORK_DIR="$(mktemp -d)"
+trap 'rm -rf "$WORK_DIR"' EXIT
 
-usage() {
-    cat <<'EOF'
-Usage: sudo bash install-billing-system.sh [--skip-build|--setup-database]
-
-Bootstrap installer for the ISP-Box billing system.
-Environment:
-  REPOSITORY_URL  Application Git URL; default: https://github.com/kevindb23/ISP-Box.git
-  SCRIPT_URL      Installer URL; normally leave unchanged.
-  APP_DIR         Install directory; default: /var/www/billing-server
-  SERVER_NAME     Nginx server_name; default: _
-  APP_DIR         Application directory; default: /var/www/billing-server
-  DOCUMENT_ROOT   Nginx document root; default: /var/www/billing-server/public
-EOF
+[[ "$EUID" -eq 0 ]] || {
+    echo "Run this script as root."
+    exit 1
 }
 
-for arg in "$@"; do
-    case "${arg}" in
-        -h|--help) usage; exit 0 ;;
-        --skip-build|--setup-database) ;;
-        *) printf 'Unknown option: %s\n' "${arg}" >&2; usage >&2; exit 2 ;;
-    esac
-done
+apt-get update
+apt-get install -y \
+    ca-certificates curl git unzip nginx mysql-server \
+    php-cli php-fpm php-common php-mysql php-curl php-mbstring \
+    php-xml php-zip python3 composer nodejs npm
 
-[[ "${EUID}" -eq 0 ]] || { command -v sudo >/dev/null 2>&1 || { echo 'Run as root or install sudo.' >&2; exit 1; }; }
-if [[ "${EUID}" -eq 0 ]]; then
-    apt-get update -y
-    apt-get install -y ca-certificates curl git
-    bash_cmd=(bash)
-else
-    sudo apt-get update -y
-    sudo apt-get install -y ca-certificates curl git
-    bash_cmd=(sudo bash)
-fi
+read -r -p "MySQL database name [portal]: " DB_NAME
+read -r -p "MySQL username [portal_radius]: " DB_USER
+read -r -s -p "MySQL password: " DB_PASSWORD
+printf '\n'
 
-curl --fail --silent --show-error --location "${SCRIPT_URL}" -o "${WORK_DIR}/install-billing-server.sh"
-curl --fail --silent --show-error --location "${SQL_URL}" -o "${WORK_DIR}/billing.sql"
-chmod 700 "${WORK_DIR}/install-billing-server.sh"
-if [[ -d "${BILLING_APP_DIR}/.git" ]]; then
-    git -C "${BILLING_APP_DIR}" fetch --prune origin
-    git -C "${BILLING_APP_DIR}" checkout "${BRANCH:-main}"
-    git -C "${BILLING_APP_DIR}" pull --ff-only origin "${BRANCH:-main}"
-elif [[ -e "${BILLING_APP_DIR}" ]]; then
-    echo "Application directory exists but is not a Git checkout: ${BILLING_APP_DIR}" >&2
+read -r -p "Web UI administrator username: " ADMIN_USERNAME
+read -r -s -p "Web UI administrator password: " ADMIN_PASSWORD
+printf '\n'
+
+DB_NAME="${DB_NAME:-portal}"
+DB_USER="${DB_USER:-portal_radius}"
+
+[[ "$DB_NAME" =~ ^[A-Za-z0-9_]+$ ]] || {
+    echo "Invalid database name."
     exit 1
-else
-    install -d -m 0755 "$(dirname "${BILLING_APP_DIR}")"
-    git clone --branch "${BRANCH:-main}" --single-branch "${DEFAULT_REPOSITORY_URL}" "${BILLING_APP_DIR}"
-fi
-if [[ "${EUID}" -eq 0 ]]; then
-    read -r -p 'MySQL database name [portal]: ' DB_NAME_INPUT
-    read -r -p 'MySQL username: ' DB_USER_INPUT
-    read -r -s -p 'MySQL password: ' DB_PASSWORD_INPUT; printf '\n'
-    read -r -p 'Web UI superadmin username: ' ADMIN_USERNAME_INPUT
-    read -r -s -p 'Web UI superadmin password: ' ADMIN_PASSWORD_INPUT; printf '\n'
-else
-    read -r -p 'MySQL database name [portal]: ' DB_NAME_INPUT
-    read -r -p 'MySQL username: ' DB_USER_INPUT
-    read -r -s -p 'MySQL password: ' DB_PASSWORD_INPUT; printf '\n'
-    read -r -p 'Web UI superadmin username: ' ADMIN_USERNAME_INPUT
-    read -r -s -p 'Web UI superadmin password: ' ADMIN_PASSWORD_INPUT; printf '\n'
-fi
-DB_NAME_INPUT="${DB_NAME_INPUT:-portal}"
-[[ -n "${DB_USER_INPUT}" && -n "${DB_PASSWORD_INPUT}" && -n "${ADMIN_USERNAME_INPUT}" && -n "${ADMIN_PASSWORD_INPUT}" ]] || { echo 'All credentials are required.' >&2; exit 1; }
-REPOSITORY_URL="${DEFAULT_REPOSITORY_URL}" APP_DIR="${BILLING_APP_DIR}" DOCUMENT_ROOT="${BILLING_DOCUMENT_ROOT}" DB_NAME="${DB_NAME_INPUT}" DB_USER="${DB_USER_INPUT}" DB_PASSWORD="${DB_PASSWORD_INPUT}" ADMIN_USERNAME="${ADMIN_USERNAME_INPUT}" ADMIN_PASSWORD="${ADMIN_PASSWORD_INPUT}" BILLING_SQL_FILE="${WORK_DIR}/billing.sql" "${bash_cmd[@]}" "${WORK_DIR}/install-billing-server.sh" --setup-database "$@"
+}
 
-# The application reads its database and CoA settings from this PHP runtime
-# file. Preserve an existing file so reruns do not overwrite local settings.
-if [[ ! -f "${BILLING_APP_DIR}/.env.runtime.php" ]]; then
-    DB_USER_B64="$(printf '%s' "${DB_USER_INPUT}" | base64 -w0)"
-    DB_PASSWORD_B64="$(printf '%s' "${DB_PASSWORD_INPUT}" | base64 -w0)"
-    DB_NAME_B64="$(printf '%s' "${DB_NAME_INPUT}" | base64 -w0)"
-    install -m 0640 -o root -g www-data /dev/null "${BILLING_APP_DIR}/.env.runtime.php"
-    cat > "${BILLING_APP_DIR}/.env.runtime.php" <<PHP_RUNTIME
+[[ "$DB_USER" =~ ^[A-Za-z0-9_]+$ ]] || {
+    echo "Invalid database username."
+    exit 1
+}
+
+install -d -m 0755 "$(dirname "$APP_DIR")"
+
+if [[ -d "$APP_DIR/.git" ]]; then
+    git -C "$APP_DIR" fetch --prune origin
+    git -C "$APP_DIR" checkout "$BRANCH"
+    git -C "$APP_DIR" reset --hard "origin/$BRANCH"
+else
+    rm -rf "$APP_DIR"
+    git clone --branch "$BRANCH" --single-branch "$REPOSITORY_URL" "$APP_DIR"
+fi
+
+cd "$APP_DIR"
+
+DB_PASSWORD_SQL="${DB_PASSWORD//\\/\\\\}"
+DB_PASSWORD_SQL="${DB_PASSWORD_SQL//\'/\'\'}"
+
+mysql --protocol=socket -uroot <<SQL
+CREATE DATABASE IF NOT EXISTS \`${DB_NAME}\`
+    CHARACTER SET utf8mb4
+    COLLATE utf8mb4_unicode_ci;
+
+CREATE USER IF NOT EXISTS '${DB_USER}'@'localhost'
+    IDENTIFIED BY '${DB_PASSWORD_SQL}';
+
+CREATE USER IF NOT EXISTS '${DB_USER}'@'127.0.0.1'
+    IDENTIFIED BY '${DB_PASSWORD_SQL}';
+
+ALTER USER '${DB_USER}'@'localhost'
+    IDENTIFIED BY '${DB_PASSWORD_SQL}';
+
+ALTER USER '${DB_USER}'@'127.0.0.1'
+    IDENTIFIED BY '${DB_PASSWORD_SQL}';
+
+GRANT ALL PRIVILEGES ON \`${DB_NAME}\`.* TO '${DB_USER}'@'localhost';
+GRANT ALL PRIVILEGES ON \`${DB_NAME}\`.* TO '${DB_USER}'@'127.0.0.1';
+
+FLUSH PRIVILEGES;
+SQL
+
+if [[ -f "$APP_DIR/billing.sql" ]]; then
+    mysql --protocol=socket -uroot "$DB_NAME" < "$APP_DIR/billing.sql"
+fi
+
+ADMIN_USERNAME_SQL="${ADMIN_USERNAME//\'/\'\'}"
+ADMIN_PASSWORD_HASH="$(php -r 'echo password_hash($argv[1], PASSWORD_DEFAULT);' "$ADMIN_PASSWORD")"
+
+mysql --protocol=socket -uroot "$DB_NAME" <<SQL
+DELETE FROM users
+WHERE role = 'SUPERADMIN';
+
+DELETE FROM login_attempts
+WHERE username = '${ADMIN_USERNAME_SQL}';
+
+INSERT INTO users
+    (username, full_name, email, password, role, status)
+VALUES
+    (
+        '${ADMIN_USERNAME_SQL}',
+        'System Administrator',
+        '${ADMIN_USERNAME_SQL}@localhost',
+        '${ADMIN_PASSWORD_HASH}',
+        'SUPERADMIN',
+        'ACTIVE'
+    );
+SQL
+
+STORED_HASH="$(
+    mysql --protocol=socket -uroot "$DB_NAME" \
+        --batch --skip-column-names \
+        -e "SELECT password FROM users WHERE username='${ADMIN_USERNAME_SQL}' AND role='SUPERADMIN' AND status='ACTIVE' LIMIT 1;"
+)"
+
+php -r '
+if (!password_verify($argv[1], $argv[2])) {
+    exit(1);
+}
+' "$ADMIN_PASSWORD" "$STORED_HASH" || {
+    echo "Administrator password verification failed."
+    exit 1
+}
+
+cat > "$APP_DIR/.env.runtime.php" <<PHP_RUNTIME
 <?php
 
 return [
     'portal_db' => [
         'host' => '127.0.0.1',
-        'user' => base64_decode('${DB_USER_B64}'),
-        'pass' => base64_decode('${DB_PASSWORD_B64}'),
-        'name' => base64_decode('${DB_NAME_B64}'),
+        'user' => '${DB_USER}',
+        'pass' => '${DB_PASSWORD}',
+        'name' => '${DB_NAME}',
     ],
     'coa' => [
         'host' => '${COA_HOST:-127.0.0.1}',
@@ -102,60 +143,68 @@ return [
     ],
 ];
 PHP_RUNTIME
-    chmod 0640 "${BILLING_APP_DIR}/.env.runtime.php"
-    chown root:www-data "${BILLING_APP_DIR}/.env.runtime.php"
-fi
 
-chown -R root:root "${BILLING_APP_DIR}"
-if [[ -f "${BILLING_APP_DIR}/.env.runtime.php" ]]; then
-    chmod 0640 "${BILLING_APP_DIR}/.env.runtime.php"
-    chown root:www-data "${BILLING_APP_DIR}/.env.runtime.php"
-fi
-cd "${BILLING_APP_DIR}"
-[[ -f composer.json ]] || { echo "The cloned billing repository must contain composer.json." >&2; exit 1; }
+chmod 0640 "$APP_DIR/.env.runtime.php"
+chown root:www-data "$APP_DIR/.env.runtime.php"
+
 composer install --no-interaction --prefer-dist --optimize-autoloader
 npm install
-if [[ -f frontend-next/package.json ]]; then npm --prefix frontend-next install; fi
-if [[ ! " $* " == *" --skip-build "* ]]; then
-    npm run build -- --configLoader runner
-    if [[ -f frontend-next/package.json ]]; then
-        npm --prefix frontend-next run typecheck
-        npm --prefix frontend-next run build
-    fi
+npm run build
+
+if [[ -f "$APP_DIR/frontend-next/package.json" ]]; then
+    npm --prefix frontend-next install
+    npm --prefix frontend-next run build
 fi
 
-PHP_MM="$(php -r 'echo PHP_MAJOR_VERSION.".".PHP_MINOR_VERSION;')"
-install -d -m 0755 /etc/nginx/sites-available /etc/nginx/sites-enabled
-install -d -m 0755 "${BILLING_DOCUMENT_ROOT}"
-tee "${NGINX_SITE}" >/dev/null <<NGINX
+chown -R root:root "$APP_DIR"
+chmod 0640 "$APP_DIR/.env.runtime.php"
+chown root:www-data "$APP_DIR/.env.runtime.php"
+
+PHP_VERSION="$(php -r 'echo PHP_MAJOR_VERSION.".".PHP_MINOR_VERSION;')"
+
+cat > "$NGINX_SITE" <<NGINX
 server {
     listen 80 default_server;
-    server_name ${SERVER_NAME:-_};
-    root ${BILLING_DOCUMENT_ROOT};
+    server_name _;
+
+    root ${DOCUMENT_ROOT};
     index index.php index.html;
 
     location / {
         try_files \$uri \$uri/ /index.php?\$query_string;
     }
 
-    location ~ \.php\$ {
+    location /build/ {
+        try_files \$uri =404;
+    }
+
+    location /build-next/ {
+        try_files \$uri =404;
+    }
+
+    location ~ \.php$ {
         include snippets/fastcgi-php.conf;
         fastcgi_param HTTP_AUTHORIZATION \$http_authorization;
         fastcgi_param HTTP_X_FORWARDED_PROTO \$scheme;
-        fastcgi_pass unix:/run/php/php${PHP_MM}-fpm.sock;
+        fastcgi_pass unix:/run/php/php${PHP_VERSION}-fpm.sock;
     }
 
-    location ^~ /uploads/work-orders/ { deny all; }
-    location ~ /\. { deny all; }
+    location ~ /\. {
+        deny all;
+    }
 }
 NGINX
-ln -sfn "${NGINX_SITE}" "${NGINX_LINK}"
-# Keep the default configuration available, but never leave its backup in
-# sites-enabled because Nginx loads every file in that directory.
+
+ln -sfn "$NGINX_SITE" "$NGINX_LINK"
 rm -f /etc/nginx/sites-enabled/default
-rm -f /etc/nginx/sites-enabled/default.disabled
+
 nginx -t
-systemctl daemon-reload
+systemctl enable --now mysql
+systemctl enable --now "php${PHP_VERSION}-fpm"
 systemctl enable --now nginx
 systemctl reload nginx
 
+echo
+echo "Installation completed successfully."
+echo "Login username: ${ADMIN_USERNAME}"
+echo "Application directory: ${APP_DIR}"
