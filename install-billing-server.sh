@@ -46,7 +46,8 @@ export DEBIAN_FRONTEND=noninteractive
 run_root apt-get update
 run_root apt-get install -y ca-certificates curl git unzip nginx mysql-server \
     php-cli php-fpm php-common php-mysql php-curl php-mbstring php-xml php-zip sshpass \
-    python3 python3-pip composer
+    python3 python3-pip python3-netmiko python3-paramiko python3-serial \
+    python3-textfsm python3-mysql.connector composer
 
 PHP_MM="$(php -r 'echo PHP_MAJOR_VERSION.".".PHP_MINOR_VERSION;')"
 PHP_MAJOR="${PHP_MM%%.*}"
@@ -54,6 +55,8 @@ PHP_MINOR="${PHP_MM##*.}"
 (( PHP_MAJOR > 8 || (PHP_MAJOR == 8 && PHP_MINOR >= 1) )) || fail "PHP 8.1+ required; found ${PHP_MM}."
 command -v composer >/dev/null 2>&1 || fail "Composer installation failed."
 command -v python3 >/dev/null 2>&1 || fail "Python 3 installation failed."
+python3 -c 'import netmiko, paramiko, serial, textfsm, mysql.connector' \
+    || fail "Required Python network/database modules are not available."
 
 if command -v node >/dev/null 2>&1; then
     NODE_MAJOR="$(node --version | sed 's/^v//' | cut -d. -f1)"
