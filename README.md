@@ -61,7 +61,31 @@ chmod +x install-freeradius-3.2-jammy.sh
 sudo ./install-freeradius-3.2-jammy.sh
 ```
 
-It installs `freeradius` and `freeradius-utils` from InkBridge Networks and preserves existing FreeRADIUS configuration.
+It installs FreeRADIUS 3.2 with `freeradius-mysql` and `freeradius-utils` from InkBridge Networks. The installer creates the `radius` database and SQL account, imports the packaged MySQL schema, enables the SQL module in the default site, and verifies the seven core tables: `radacct`, `radcheck`, `radgroupcheck`, `radgroupreply`, `radpostauth`, `radreply`, and `radusergroup`.
+
+The default database settings are:
+
+```text
+Database: radius
+SQL user: raduser
+SQL password: radpasswd
+Host: localhost
+Port: 3306
+```
+
+Override them without editing the script:
+
+```bash
+sudo env \
+  RADIUS_DB_NAME=radius \
+  RADIUS_DB_USER=raduser \
+  RADIUS_DB_PASSWORD='change-this-password' \
+  RADIUS_DB_HOST=localhost \
+  RADIUS_DB_PORT=3306 \
+  ./install-freeradius-3.2-jammy.sh
+```
+
+The script expects local MySQL root socket access to create the database and SQL user. It does not add sample credentials such as `test/1234567`; add production subscriber credentials through the application or your own controlled SQL process.
 
 ## Install the ACS server
 
