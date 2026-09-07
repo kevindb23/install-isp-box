@@ -95,9 +95,14 @@ DELETE FROM users WHERE role = 'SUPERADMIN';
 INSERT INTO users (username, full_name, email, password, role, status)
 VALUES ('${ADMIN_USERNAME_SQL}', 'System Administrator', '${ADMIN_USERNAME_SQL}@localhost', '${ADMIN_PASSWORD_HASH}', 'SUPERADMIN', 'ACTIVE');
 SQL
+        STORED_ADMIN_HASH="$(run_root mysql --protocol=socket -uroot "${DB_NAME}" --batch --skip-column-names -e "SELECT password FROM users WHERE username='${ADMIN_USERNAME_SQL}' AND role='SUPERADMIN' AND status='ACTIVE' LIMIT 1;")"
+        [[ -n "${STORED_ADMIN_HASH}" ]] || fail "Portal administrator was not created in ${DB_NAME}."
+        php -r 'exit(password_verify($argv[1], $argv[2]) ? 0 : 1);' "${ADMIN_PASSWORD}" "${STORED_ADMIN_HASH}" || fail "Portal administrator password verification failed."
+        unset ADMIN_PASSWORD_HASH STORED_ADMIN_HASH
     fi
 fi
 
 run_root systemctl enable --now mysql "php${PHP_MM}-fpm"
 
 printf '[billing-server] Server dependencies and MySQL setup completed.\n'
+
