@@ -92,6 +92,13 @@ sed -i \
 # Use the system CA bundle so FreeRADIUS can parse the module on a fresh host.
 if [[ -f /etc/ssl/certs/ca-certificates.crt ]]; then
     sed -i 's|^[[:space:]]*ca_file[[:space:]]*=.*|ca_file = /etc/ssl/certs/ca-certificates.crt|' "${SQL_CONF}"
+    # Also repair included module files and symlink targets carrying the
+    # package's example CA path.
+    FREERADIUS_CONFIG_ROOT="/etc/freeradius/3.0"
+    [[ -d "${FREERADIUS_CONFIG_ROOT}" ]] || FREERADIUS_CONFIG_ROOT="/etc/freeradius"
+    while IFS= read -r -d '' config_file; do
+        sed -i 's|^[[:space:]]*ca_file[[:space:]]*=.*|ca_file = /etc/ssl/certs/ca-certificates.crt|' "${config_file}"
+    done < <(find "${FREERADIUS_CONFIG_ROOT}" -type f -name '*.conf' -print0 2>/dev/null)
 fi
 RADIUSD_CONF="/etc/freeradius/3.0/radiusd.conf"
 [[ -f "${RADIUSD_CONF}" ]] || RADIUSD_CONF="/etc/freeradius/radiusd.conf"
@@ -110,6 +117,9 @@ fi
 log "Verifying the seven core RADIUS SQL tables."
 TABLE_COUNT="$(mysql --protocol=socket -u"${RADIUS_DB_USER}" -p"${RADIUS_DB_PASSWORD}" -N -B "${RADIUS_DB_NAME}" -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='${RADIUS_DB_NAME}' AND table_name IN ('radacct','radcheck','radgroupcheck','radgroupreply','radpostauth','radreply','radusergroup');")"
 [[ "${TABLE_COUNT}" == "7" ]] || die "Expected seven core RADIUS SQL tables, found ${TABLE_COUNT}."
+
+log "Validating the FreeRADIUS configuration."
+freeradius -XC >/dev/null || die "FreeRADIUS configuration validation failed. Run 'freeradius -XC' for details."
 
 if command -v systemctl >/dev/null 2>&1 && systemctl list-unit-files freeradius.service >/dev/null 2>&1; then
     log "Enabling and restarting the FreeRADIUS service."
