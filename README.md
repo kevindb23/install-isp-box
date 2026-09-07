@@ -61,7 +61,7 @@ chmod +x install-freeradius-3.2-jammy.sh
 sudo ./install-freeradius-3.2-jammy.sh
 ```
 
-It installs FreeRADIUS 3.2 with `freeradius-mysql` and `freeradius-utils` from InkBridge Networks. The installer creates the `radius` database and SQL account, imports the packaged MySQL schema, enables the SQL module in the default site, and verifies the seven core tables: `radacct`, `radcheck`, `radgroupcheck`, `radgroupreply`, `radpostauth`, `radreply`, and `radusergroup`.
+It installs and verifies FreeRADIUS 3.2 with `freeradius-mysql` and `freeradius-utils` from InkBridge Networks. If APT selects Ubuntu's stock FreeRADIUS 3.0 package, the installer stops instead of continuing with the wrong version. It creates the `radius` database and SQL account, imports the packaged MySQL schema, enables the SQL module in the default site, and verifies the seven core tables: `radacct`, `radcheck`, `radgroupcheck`, `radgroupreply`, `radpostauth`, `radreply`, and `radusergroup`.
 
 The default database settings are:
 

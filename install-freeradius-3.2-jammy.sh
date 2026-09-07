@@ -62,6 +62,10 @@ apt-get update
 log "Installing FreeRADIUS 3.2 packages with MySQL support."
 apt-get install -y freeradius freeradius-utils freeradius-mysql
 
+RADIUS_VERSION="$(freeradius -v 2>/dev/null | sed -n 's/.*FreeRADIUS Version \([0-9][0-9.]*\).*/\1/p' | head -n1)"
+[[ "${RADIUS_VERSION}" == 3.2.* ]] || die "FreeRADIUS 3.2 was not installed. Detected version: ${RADIUS_VERSION:-unknown}. Check the InkBridge APT repository and pinning."
+log "Verified FreeRADIUS version ${RADIUS_VERSION}."
+
 command -v mysql >/dev/null 2>&1 || die "The mysql client is required for RADIUS database setup."
 
 RADIUS_DB_NAME="${RADIUS_DB_NAME:-radius}"
