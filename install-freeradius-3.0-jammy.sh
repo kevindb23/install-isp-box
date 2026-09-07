@@ -84,7 +84,7 @@ sed -i \
 # Ubuntu's FreeRADIUS 3.0 template comments out the MySQL connection fields.
 # Set only the first commented MySQL examples so other database examples stay intact.
 sed -i -E \
-    "0,/^[[:space:]]*#[[:space:]]*server[[:space:]]*=/{s@^[[:space:]]*#[[:space:]]*server[[:space:]]*=.*@server = \"${RADIUS_DB_HOST}\"@}" \
+    -e "0,/^[[:space:]]*#[[:space:]]*server[[:space:]]*=/{s@^[[:space:]]*#[[:space:]]*server[[:space:]]*=.*@server = \"${RADIUS_DB_HOST}\"@}" \
     -e "0,/^[[:space:]]*#[[:space:]]*port[[:space:]]*=/{s@^[[:space:]]*#[[:space:]]*port[[:space:]]*=.*@port = ${RADIUS_DB_PORT}@}" \
     -e "0,/^[[:space:]]*#[[:space:]]*login[[:space:]]*=/{s@^[[:space:]]*#[[:space:]]*login[[:space:]]*=.*@login = \"${RADIUS_DB_USER}\"@}" \
     -e "0,/^[[:space:]]*#[[:space:]]*password[[:space:]]*=/{s@^[[:space:]]*#[[:space:]]*password[[:space:]]*=.*@password = \"${DB_PASSWORD_SQL}\"@}" \
