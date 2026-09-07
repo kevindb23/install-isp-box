@@ -100,6 +100,11 @@ if [[ -f /etc/ssl/certs/ca-certificates.crt ]]; then
         sed -i 's|^[[:space:]]*ca_file[[:space:]]*=.*|ca_file = /etc/ssl/certs/ca-certificates.crt|' "${config_file}"
     done < <(find "${FREERADIUS_CONFIG_ROOT}" -type f -name '*.conf' -print0 2>/dev/null)
 fi
+# The Ubuntu example SQL module can also contain client-certificate paths
+# that are not installed. They are optional for password-authenticated MySQL.
+sed -i -E \
+    's|^([[:space:]]*)(certificate_file|private_key_file)[[:space:]]*=.*|\1# \2 disabled: no client TLS certificate configured|' \
+    "${SQL_CONF}"
 RADIUSD_CONF="/etc/freeradius/3.0/radiusd.conf"
 [[ -f "${RADIUSD_CONF}" ]] || RADIUSD_CONF="/etc/freeradius/radiusd.conf"
 [[ -f "${RADIUSD_CONF}" ]] || die "FreeRADIUS configuration was not found at ${RADIUSD_CONF}."
