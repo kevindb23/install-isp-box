@@ -61,7 +61,7 @@ chmod +x install-freeradius-3.0-jammy.sh
 sudo ./install-freeradius-3.0-jammy.sh
 ```
 
-It installs FreeRADIUS 3.0 with `freeradius-mysql` and `freeradius-utils`, creates the `radius` database and SQL account, imports the packaged MySQL schema, enables the SQL module in the default site, and verifies the seven core tables: `radacct`, `radcheck`, `radgroupcheck`, `radgroupreply`, `radpostauth`, `radreply`, and `radusergroup`.
+It installs FreeRADIUS 3.0 with `freeradius-mysql` and `freeradius-utils`, creates the separate `radius` database and dedicated SQL account, imports the repository `radius.sql` schema, enables the SQL module in the default site, and verifies the seven core tables: `radacct`, `radcheck`, `radgroupcheck`, `radgroupreply`, `radpostauth`, `radreply`, and `radusergroup`.
 
 The default database settings are:
 
@@ -114,12 +114,16 @@ Use `--purge-config` to also remove `/etc/accel-ppp.conf` and FRR configuration.
 FreeRADIUS:
 
 ```bash
-wget -O uninstall-freeradius-3.2-jammy.sh https://raw.githubusercontent.com/kevindb23/install-isp-box/main/uninstall-freeradius-3.2-jammy.sh
-chmod +x uninstall-freeradius-3.2-jammy.sh
-sudo ./uninstall-freeradius-3.2-jammy.sh
+wget -O uninstall-freeradius-jammy.sh https://raw.githubusercontent.com/kevindb23/install-isp-box/main/uninstall-freeradius-jammy.sh
+chmod +x uninstall-freeradius-jammy.sh
+sudo ./uninstall-freeradius-jammy.sh
 ```
 
-Use `--purge-config` to remove `/etc/freeradius` and FreeRADIUS logs.
+The uninstaller removes the FreeRADIUS 3.0 packages, `/etc/freeradius`, logs,
+the `radius` database, and the dedicated `raduser` SQL account. It preserves
+the MySQL/MariaDB server and the billing database. Use `--yes` for unattended
+removal. Override `RADIUS_DB_NAME` and `RADIUS_DB_USER` if custom values were
+used during installation.
 
 ACS/GenieACS:
 
