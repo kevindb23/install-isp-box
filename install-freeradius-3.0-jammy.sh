@@ -130,18 +130,27 @@ if command -v systemctl >/dev/null 2>&1 && systemctl list-unit-files freeradius.
     log "Enabling and restarting the FreeRADIUS service."
     systemctl enable freeradius
     systemctl stop freeradius >/dev/null 2>&1 || true
+    systemctl kill --kill-who=all --signal=TERM freeradius >/dev/null 2>&1 || true
     systemctl reset-failed freeradius >/dev/null 2>&1 || true
+    for wait_attempt in 1 2 3 4 5; do
+        systemctl is-active --quiet freeradius || break
+        sleep 1
+    done
     started=0
-    for attempt in 1 2 3; do
+    for attempt in 1 2 3 4 5; do
         if systemctl start freeradius; then
             started=1
             break
         fi
         systemctl stop freeradius >/dev/null 2>&1 || true
+        systemctl kill --kill-who=all --signal=TERM freeradius >/dev/null 2>&1 || true
         systemctl reset-failed freeradius >/dev/null 2>&1 || true
-        sleep 2
+        sleep 3
     done
-    [[ "${started}" -eq 1 ]] || die "FreeRADIUS failed to start after configuration validation. Check 'journalctl -xeu freeradius.service'."
+    if [[ "${started}" -ne 1 ]]; then
+        journalctl -u freeradius --no-pager -n 40 >&2 || true
+        die "FreeRADIUS failed to start after configuration validation."
+    fi
     systemctl --no-pager --full status freeradius || true
 else
     log "FreeRADIUS was installed. Start it with: systemctl enable --now freeradius"
