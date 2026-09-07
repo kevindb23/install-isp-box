@@ -81,6 +81,16 @@ sed -i \
     -e "s|^[[:space:]]*password[[:space:]]*=.*|password = \"${DB_PASSWORD_SQL}\"|" \
     -e "s|^[[:space:]]*radius_db[[:space:]]*=.*|radius_db = \"${RADIUS_DB_NAME}\"|" \
     "${SQL_CONF}"
+# Ubuntu's FreeRADIUS 3.0 template comments out the MySQL connection fields.
+# Set only the first commented MySQL examples so other database examples stay intact.
+sed -i -E \
+    "0,/^[[:space:]]*#[[:space:]]*server[[:space:]]*=/{s@^[[:space:]]*#[[:space:]]*server[[:space:]]*=.*@server = \"${RADIUS_DB_HOST}\"@}" \
+    -e "0,/^[[:space:]]*#[[:space:]]*port[[:space:]]*=/{s@^[[:space:]]*#[[:space:]]*port[[:space:]]*=.*@port = ${RADIUS_DB_PORT}@}" \
+    -e "0,/^[[:space:]]*#[[:space:]]*login[[:space:]]*=/{s@^[[:space:]]*#[[:space:]]*login[[:space:]]*=.*@login = \"${RADIUS_DB_USER}\"@}" \
+    -e "0,/^[[:space:]]*#[[:space:]]*password[[:space:]]*=/{s@^[[:space:]]*#[[:space:]]*password[[:space:]]*=.*@password = \"${DB_PASSWORD_SQL}\"@}" \
+    "${SQL_CONF}"
+# This installation uses local MySQL password authentication, not MySQL TLS.
+sed -i -E 's|^[[:space:]]*tls_required[[:space:]]*=.*|tls_required = no|' "${SQL_CONF}"
 # Ubuntu's packaged SQL module may reference a non-existent example CA file.
 # Use the system CA bundle so FreeRADIUS can parse the module on a fresh host.
 if [[ -f /etc/ssl/certs/ca-certificates.crt ]]; then
