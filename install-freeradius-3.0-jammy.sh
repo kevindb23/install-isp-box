@@ -129,7 +129,19 @@ freeradius -XC >/dev/null || die "FreeRADIUS configuration validation failed. Ru
 if command -v systemctl >/dev/null 2>&1 && systemctl list-unit-files freeradius.service >/dev/null 2>&1; then
     log "Enabling and restarting the FreeRADIUS service."
     systemctl enable freeradius
-    systemctl restart freeradius
+    systemctl stop freeradius >/dev/null 2>&1 || true
+    systemctl reset-failed freeradius >/dev/null 2>&1 || true
+    started=0
+    for attempt in 1 2 3; do
+        if systemctl start freeradius; then
+            started=1
+            break
+        fi
+        systemctl stop freeradius >/dev/null 2>&1 || true
+        systemctl reset-failed freeradius >/dev/null 2>&1 || true
+        sleep 2
+    done
+    [[ "${started}" -eq 1 ]] || die "FreeRADIUS failed to start after configuration validation. Check 'journalctl -xeu freeradius.service'."
     systemctl --no-pager --full status freeradius || true
 else
     log "FreeRADIUS was installed. Start it with: systemctl enable --now freeradius"
