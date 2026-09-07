@@ -91,7 +91,8 @@ SQL
         ADMIN_PASSWORD_HASH="$(php -r 'echo password_hash($argv[1], PASSWORD_DEFAULT);' "${ADMIN_PASSWORD}")"
         ADMIN_USERNAME_SQL="${ADMIN_USERNAME//\'/\'\'}"
         run_root mysql --protocol=socket -uroot "${DB_NAME}" <<SQL
-DELETE FROM users WHERE role = 'SUPERADMIN';
+DELETE FROM users
+WHERE role = 'SUPERADMIN' OR username = '${ADMIN_USERNAME_SQL}';
 INSERT INTO users (username, full_name, email, password, role, status)
 VALUES ('${ADMIN_USERNAME_SQL}', 'System Administrator', '${ADMIN_USERNAME_SQL}@localhost', '${ADMIN_PASSWORD_HASH}', 'SUPERADMIN', 'ACTIVE');
 SQL
@@ -105,4 +106,3 @@ fi
 run_root systemctl enable --now mysql "php${PHP_MM}-fpm"
 
 printf '[billing-server] Server dependencies and MySQL setup completed.\n'
-
