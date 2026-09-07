@@ -6,7 +6,7 @@ readonly SCRIPT_URL="${SCRIPT_URL:-https://raw.githubusercontent.com/kevindb23/i
 readonly SQL_URL="${SQL_URL:-https://raw.githubusercontent.com/kevindb23/install-isp-box/main/billing.sql}"
 readonly DEFAULT_REPOSITORY_URL="${REPOSITORY_URL:-https://github.com/kevindb23/ISP-Box.git}"
 readonly BILLING_APP_DIR="${APP_DIR:-/var/www/billing-server}"
-readonly BILLING_DOCUMENT_ROOT="${DOCUMENT_ROOT:-/var/www/billing-server/public}"
+readonly BILLING_DOCUMENT_ROOT="${DOCUMENT_ROOT:-${BILLING_APP_DIR}/public}"
 readonly NGINX_SITE="/etc/nginx/sites-available/billing-server"
 readonly NGINX_LINK="/etc/nginx/sites-enabled/billing-server"
 readonly WORK_DIR="$(mktemp -d -t billing-system.XXXXXX)"
@@ -77,9 +77,26 @@ DB_NAME_INPUT="${DB_NAME_INPUT:-portal}"
 [[ -n "${DB_USER_INPUT}" && -n "${DB_PASSWORD_INPUT}" && -n "${ADMIN_USERNAME_INPUT}" && -n "${ADMIN_PASSWORD_INPUT}" ]] || { echo 'All credentials are required.' >&2; exit 1; }
 REPOSITORY_URL="${DEFAULT_REPOSITORY_URL}" APP_DIR="${BILLING_APP_DIR}" DOCUMENT_ROOT="${BILLING_DOCUMENT_ROOT}" DB_NAME="${DB_NAME_INPUT}" DB_USER="${DB_USER_INPUT}" DB_PASSWORD="${DB_PASSWORD_INPUT}" ADMIN_USERNAME="${ADMIN_USERNAME_INPUT}" ADMIN_PASSWORD="${ADMIN_PASSWORD_INPUT}" BILLING_SQL_FILE="${WORK_DIR}/billing.sql" "${bash_cmd[@]}" "${WORK_DIR}/install-billing-server.sh" --setup-database "$@"
 
+# The application connects to 127.0.0.1. The bootstrap script creates the
+# localhost account, so also authorize the TCP loopback account and remove any
+# stale lock left by an imported login_attempts table.
+DB_PASSWORD_SQL="${DB_PASSWORD_INPUT//\\/\\\\}"
+DB_PASSWORD_SQL="${DB_PASSWORD_SQL//\'/\'\'}"
+ADMIN_USERNAME_SQL="${ADMIN_USERNAME_INPUT//\'/\'\'}"
+
+mysql --protocol=socket -uroot "${DB_NAME_INPUT}" <<SQL
+CREATE USER IF NOT EXISTS '${DB_USER_INPUT}'@'127.0.0.1'
+    IDENTIFIED BY '${DB_PASSWORD_SQL}';
+ALTER USER '${DB_USER_INPUT}'@'127.0.0.1'
+    IDENTIFIED BY '${DB_PASSWORD_SQL}';
+GRANT ALL PRIVILEGES ON \`${DB_NAME_INPUT}\`.* TO '${DB_USER_INPUT}'@'127.0.0.1';
+DELETE FROM login_attempts WHERE username = '${ADMIN_USERNAME_SQL}';
+FLUSH PRIVILEGES;
+SQL
+
 # The application reads its database and CoA settings from this PHP runtime
 # file. Preserve an existing file so reruns do not overwrite local settings.
-if [[ ! -f "${BILLING_APP_DIR}/.env.runtime.php" ]]; then
+if [[ ! -f "${BILLING_APP_DIR}/.env.runtime.php" || "${FORCE_RUNTIME_CONFIG:-0}" == "1" ]]; then
     DB_USER_B64="$(printf '%s' "${DB_USER_INPUT}" | base64 -w0)"
     DB_PASSWORD_B64="$(printf '%s' "${DB_PASSWORD_INPUT}" | base64 -w0)"
     DB_NAME_B64="$(printf '%s' "${DB_NAME_INPUT}" | base64 -w0)"
@@ -136,6 +153,14 @@ server {
 
     location / {
         try_files \$uri \$uri/ /index.php?\$query_string;
+    }
+
+    location /build/ {
+        try_files \$uri =404;
+    }
+
+    location /build-next/ {
+        try_files \$uri =404;
     }
 
     location ~ \.php\$ {
