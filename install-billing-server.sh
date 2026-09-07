@@ -58,6 +58,38 @@ command -v python3 >/dev/null 2>&1 || fail "Python 3 installation failed."
 python3 -c 'import netmiko, paramiko, serial, textfsm, mysql.connector' \
     || fail "Required Python network/database modules are not available."
 
+# Keep the network-automation runtime aligned across fresh installations.
+# These versions are used by the OLT, OMCI, VLAN, and provisioning scripts.
+run_root python3 -m pip install --upgrade --no-cache-dir \
+    'netmiko==4.6.0' \
+    'ntc-templates==9.0.0' \
+    'paramiko==4.0.0' \
+    'pyserial==3.5' \
+    'scp==0.15.0' \
+    'textfsm==2.1.0' \
+    'mysql-connector-python==9.6.0'
+
+python3 - <<'PY'
+from importlib.metadata import version
+
+expected = {
+    'netmiko': '4.6.0',
+    'ntc-templates': '9.0.0',
+    'paramiko': '4.0.0',
+    'pyserial': '3.5',
+    'scp': '0.15.0',
+    'textfsm': '2.1.0',
+    'mysql-connector-python': '9.6.0',
+}
+
+for package, required in expected.items():
+    installed = version(package)
+    if installed != required:
+        raise SystemExit(f'{package} version mismatch: expected {required}, found {installed}')
+
+print('Pinned Python network-automation packages verified.')
+PY
+
 if command -v node >/dev/null 2>&1; then
     NODE_MAJOR="$(node --version | sed 's/^v//' | cut -d. -f1)"
 else
