@@ -103,7 +103,7 @@ fi
 # The Ubuntu example SQL module can also contain client-certificate paths
 # that are not installed. They are optional for password-authenticated MySQL.
 sed -i -E \
-    's|^([[:space:]]*)(certificate_file|private_key_file)[[:space:]]*=.*|\1# \2 disabled: no client TLS certificate configured|' \
+    's@^([[:space:]]*)(certificate_file|private_key_file)[[:space:]]*=.*@\1# \2 disabled: no client TLS certificate configured@' \
     "${SQL_CONF}"
 RADIUSD_CONF="/etc/freeradius/3.0/radiusd.conf"
 [[ -f "${RADIUSD_CONF}" ]] || RADIUSD_CONF="/etc/freeradius/radiusd.conf"
