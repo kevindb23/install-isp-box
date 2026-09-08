@@ -58,6 +58,26 @@ GRANT ALL PRIVILEGES ON \`${RADIUS_DB_NAME}\`.* TO '${RADIUS_DB_USER}'@'%';
 FLUSH PRIVILEGES;
 SQL
 
+# The billing application may connect to the local RADIUS database through the
+# server's LAN address. A '%' MySQL account is not sufficient when mysqld is
+# bound only to 127.0.0.1, so expose the local MySQL listener when available.
+MYSQLD_CONFIG=""
+for candidate in /etc/mysql/mysql.conf.d/mysqld.cnf /etc/mysql/mariadb.conf.d/50-server.cnf; do
+    if [[ -f "${candidate}" ]]; then
+        MYSQLD_CONFIG="${candidate}"
+        break
+    fi
+done
+if [[ -n "${MYSQLD_CONFIG}" ]] && command -v systemctl >/dev/null 2>&1 && systemctl list-unit-files mysql.service >/dev/null 2>&1; then
+    if grep -Eq '^[[:space:]]*#?[[:space:]]*bind-address[[:space:]]*=' "${MYSQLD_CONFIG}"; then
+        sed -i -E 's|^[[:space:]]*#?[[:space:]]*bind-address[[:space:]]*=.*|bind-address = 0.0.0.0|' "${MYSQLD_CONFIG}"
+    else
+        printf '\n[mysqld]\nbind-address = 0.0.0.0\n' >> "${MYSQLD_CONFIG}"
+    fi
+    log "Configuring MySQL to accept RADIUS connections on all interfaces."
+    systemctl restart mysql
+fi
+
 SCHEMA_FILE="$(mktemp /tmp/radius-schema.XXXXXX.sql)"
 trap 'rm -f "${SCHEMA_FILE}"; die "Installation failed near line ${LINENO}."' ERR
 log "Downloading the repository RADIUS schema."
